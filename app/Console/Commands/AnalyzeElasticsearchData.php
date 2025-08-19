@@ -163,13 +163,6 @@ class AnalyzeElasticsearchData extends Command
         $this->info("\n💾 Analysis report saved to: storage/app/{$filename}");
     }
 
-    {
-        $filename = 'elasticsearch_mapping_'.now()->format('Y_m_d_H_i_s').'.json';
-        Storage::disk('local')->put($filename, json_encode($mapping, JSON_PRETTY_PRINT));
-
-        $this->info("📋 Mapping report saved to: storage/app/{$filename}");
-    }
-
     protected function formatSampleValue($value): string
     {
         if (is_array($value)) {
