@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(php artisan make:class:*)"
+      "Bash(php artisan make:class:*)",
+      "Bash(php artisan make:migration:*)",
+      "Bash(mkdir:*)",
+      "Bash(php artisan list:*)"
     ],
     "deny": [],
     "ask": []
