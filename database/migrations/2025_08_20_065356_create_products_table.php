@@ -17,9 +17,9 @@ return new class extends Migration
 
             // Basic product fields
             $table->string('name');
-            $table->string('slug')->unique();
+            $table->string('slug');
             $table->text('description')->nullable();
-            $table->string('sku')->unique();
+            $table->string('sku');
             $table->decimal('price', 10, 2);
             $table->integer('stock_quantity')->default(0);
             $table->enum('status', ['active', 'inactive', 'draft','discontinued'])->default('active');

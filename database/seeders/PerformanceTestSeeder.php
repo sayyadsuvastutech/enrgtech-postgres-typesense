@@ -26,8 +26,8 @@ class PerformanceTestSeeder extends Seeder
         // Ensure we have base data first
         $this->ensureBaseData();
 
-        // Create millions of products in chunks for better performance
-        $this->createMassProducts(1000000); // 1 million products
+        // Create millions of products using the optimized MassProductSeeder
+        $this->call(MassProductSeeder::class);
 
         $endTime = microtime(true);
         $duration = round($endTime - $startTime, 2);
