@@ -7,6 +7,8 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
+Volt::route('/search', 'products.search')->name('products.search');
+
 Route::view('dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])
     ->name('dashboard');

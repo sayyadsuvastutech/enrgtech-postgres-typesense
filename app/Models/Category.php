@@ -47,4 +47,20 @@ class Category extends Model
     {
         return $query->has('products');
     }
+
+    public function scopeMain($query)
+    {
+        return $query->whereNull('parent_id');
+    }
+
+    public static function toTree($categories = null)
+    {
+        if ($categories === null) {
+            $categories = static::with('children')->get();
+        }
+        
+        return $categories->filter(function ($category) {
+            return $category->parent_id === null;
+        })->values();
+    }
 }
