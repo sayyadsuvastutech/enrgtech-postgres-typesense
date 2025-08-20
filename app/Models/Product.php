@@ -108,6 +108,35 @@ class Product extends Model
         );
     }
 
+
+    /**
+     * Scope for full-text search using the search_vector
+     */
+    public function scopeSearch($query, $searchTerm)
+    {
+        return $query->whereRaw(
+            "search_vector @@ plainto_tsquery('english', ?)",
+            [$searchTerm]
+        )->orderByRaw(
+            "ts_rank(search_vector, plainto_tsquery('english', ?)) DESC",
+            [$searchTerm]
+        );
+    }
+
+    /**
+     * Scope for advanced search with ranking
+     */
+    public function scopeSearchWithRank($query, $searchTerm)
+    {
+        return $query->selectRaw(
+            "*, ts_rank(search_vector, plainto_tsquery('english', ?)) as search_rank",
+            [$searchTerm]
+        )->whereRaw(
+            "search_vector @@ plainto_tsquery('english', ?)",
+            [$searchTerm]
+        )->orderBy('search_rank', 'desc');
+    }
+
     public function scopeWithJsonAttribute(Builder $query, string $key, $value): Builder
     {
         return $query->whereJsonContains("attributes->{$key}", $value);
@@ -118,32 +147,6 @@ class Product extends Model
         return $query->orderBy('created_at', 'desc')->limit($limit);
     }
 
-    public function updateSearchVector(): void
-    {
-        DB::statement("
-            UPDATE products 
-            SET search_vector = to_tsvector('english', 
-                coalesce(name, '') || ' ' || 
-                coalesce(description, '') || ' ' || 
-                coalesce(sku, '') || ' ' ||
-                coalesce(category_name, '') || ' ' ||
-                coalesce(brand_name, '') || ' ' ||
-                coalesce(manufacturer_name, '')
-            )
-            WHERE id = ?
-        ", [$this->id]);
-    }
-
-    protected static function booted(): void
-    {
-        static::created(function (Product $product) {
-            $product->updateSearchVector();
-        });
-
-        static::updated(function (Product $product) {
-            $product->updateSearchVector();
-        });
-    }
 
     public function getMainImageAttribute(): ?string
     {
