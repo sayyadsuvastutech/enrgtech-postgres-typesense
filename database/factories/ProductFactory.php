@@ -14,11 +14,11 @@ class ProductFactory extends Factory
     {
         $name = $this->generateProductName();
         $sku = $this->generateSKU();
-        
+
         $category = Category::factory()->create();
         $brand = Brand::factory()->create();
         $manufacturer = Manufacturer::factory()->create();
-        
+
         return [
             'name' => $name,
             'slug' => Str::slug($name . '-' . $sku),
@@ -31,7 +31,7 @@ class ProductFactory extends Factory
             'brand_id' => $brand->id,
             'manufacturer_id' => $manufacturer->id,
             'category_name' => $category->name,
-            'brand_name' => $brand->name,  
+            'brand_name' => $brand->name,
             'manufacturer_name' => $manufacturer->name,
             'images' => $this->generateImages(),
             'thumbnails' => $this->generateThumbnails(),
@@ -48,11 +48,11 @@ class ProductFactory extends Factory
                 'Claw Hammer', 'Ball Peen Hammer', 'Dead Blow Hammer',
                 'Needle Nose Pliers', 'Diagonal Cutters', 'Wire Strippers'
             ];
-            
+
             $tool = $this->faker->randomElement($tools);
             $brand = $this->faker->randomElement(['Stanley', 'Klein Tools', 'Craftsman', 'Snap-on']);
             $model = $this->faker->bothify('??###');
-            
+
             return [
                 'name' => "{$brand} {$tool} - Model {$model}",
                 'description' => $this->generateHandToolDescription($tool),
@@ -69,11 +69,11 @@ class ProductFactory extends Factory
                 'Cordless Drill', 'Impact Driver', 'Hammer Drill', 'Circular Saw',
                 'Jigsaw', 'Random Orbit Sander', 'Angle Grinder', 'Miter Saw'
             ];
-            
+
             $tool = $this->faker->randomElement($tools);
             $brand = $this->faker->randomElement(['DeWalt', 'Milwaukee', 'Makita', 'Bosch']);
             $model = $this->faker->bothify('???####');
-            
+
             return [
                 'name' => "{$brand} {$tool} - Model {$model}",
                 'description' => $this->generatePowerToolDescription($tool),
@@ -90,11 +90,11 @@ class ProductFactory extends Factory
             $voltages = ['125V', '250V', '600V'];
             $types = ['fast_blow', 'slow_blow', 'time_delay'];
             $mountings = ['panel_mount', 'fuse_block', 'inline'];
-            
+
             $amperage = $this->faker->randomElement($amperages);
             $voltage = $this->faker->randomElement($voltages);
             $type = $this->faker->randomElement($types);
-            
+
             return [
                 'name' => "Electrical Fuse {$amperage} {$voltage} - {$type}",
                 'description' => $this->generateFuseDescription($amperage, $voltage, $type),
@@ -120,10 +120,10 @@ class ProductFactory extends Factory
                 'Safety Glasses', 'Work Gloves', 'Hard Hat', 'Knee Pads',
                 'Safety Goggles', 'Cut Resistant Gloves', 'Face Shield', 'Hearing Protection'
             ];
-            
+
             $item = $this->faker->randomElement($equipment);
             $brand = $this->faker->randomElement(['3M', 'Honeywell', 'MSA', 'Pyramex']);
-            
+
             return [
                 'name' => "{$brand} {$item}",
                 'description' => $this->generateSafetyDescription($item),
@@ -138,8 +138,8 @@ class ProductFactory extends Factory
         $brands = ['ProTool', 'MaxForce', 'TechCraft', 'PowerMax', 'ElectroPlus'];
         $descriptors = ['Professional', 'Heavy Duty', 'Premium', 'Industrial', 'Commercial'];
         $tools = ['Tool', 'Component', 'Equipment', 'Device', 'Instrument'];
-        
-        return $this->faker->randomElement($brands) . ' ' . 
+
+        return $this->faker->randomElement($brands) . ' ' .
                $this->faker->randomElement($descriptors) . ' ' .
                $this->faker->randomElement($tools);
     }
@@ -153,22 +153,24 @@ class ProductFactory extends Factory
     {
         $count = $this->faker->numberBetween(3, 5);
         $images = [];
-        
+
         for ($i = 0; $i < $count; $i++) {
-            $images[] = "https://picsum.photos/800/600?random=" . $this->faker->unique()->numberBetween(1, 10000);
+            // use randomNumber instead of unique()->numberBetween
+            $images[] = "https://picsum.photos/800/600?random=" . $this->faker->randomNumber(5, true);
         }
-        
+
         return $images;
     }
+
 
     private function generateThumbnails(): array
     {
         $thumbnails = [];
-        
+
         foreach ([150, 300] as $size) {
             $thumbnails["{$size}x{$size}"] = "https://picsum.photos/{$size}/{$size}?random=" . $this->faker->unique()->numberBetween(1, 10000);
         }
-        
+
         return $thumbnails;
     }
 
@@ -288,25 +290,25 @@ class ProductFactory extends Factory
     {
         return $this->state(function () use ($categoryId, $brandId, $manufacturerId) {
             $state = [];
-            
+
             if ($categoryId !== null) {
                 $category = Category::find($categoryId);
                 $state['category_id'] = $categoryId;
                 $state['category_name'] = $category->name;
             }
-            
+
             if ($brandId !== null) {
                 $brand = Brand::find($brandId);
                 $state['brand_id'] = $brandId;
                 $state['brand_name'] = $brand->name;
             }
-            
+
             if ($manufacturerId !== null) {
                 $manufacturer = Manufacturer::find($manufacturerId);
                 $state['manufacturer_id'] = $manufacturerId;
                 $state['manufacturer_name'] = $manufacturer->name;
             }
-            
+
             return $state;
         });
     }

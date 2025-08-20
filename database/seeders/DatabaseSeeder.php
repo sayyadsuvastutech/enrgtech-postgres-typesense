@@ -62,9 +62,10 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($categories as $name => $description) {
-            $rootCategories[$name] = Category::create([
-                'name' => $name,
+            $rootCategories[$name] = Category::firstOrCreate([
                 'slug' => \Illuminate\Support\Str::slug($name),
+            ], [
+                'name' => $name,
                 'description' => $description,
                 'parent_id' => null,
             ]);
@@ -86,11 +87,12 @@ class DatabaseSeeder extends Seeder
         ];
         
         foreach ($handToolSubs as $name => $description) {
-            $subcategories['Hand Tools'][] = Category::create([
-                'name' => $name,
+            $subcategories['Hand Tools'][] = Category::firstOrCreate([
                 'slug' => \Illuminate\Support\Str::slug($name),
-                'description' => $description,
                 'parent_id' => $rootCategories['Hand Tools']->id,
+            ], [
+                'name' => $name,
+                'description' => $description,
             ]);
         }
 
@@ -103,11 +105,12 @@ class DatabaseSeeder extends Seeder
         ];
         
         foreach ($powerToolSubs as $name => $description) {
-            $subcategories['Power Tools'][] = Category::create([
-                'name' => $name,
+            $subcategories['Power Tools'][] = Category::firstOrCreate([
                 'slug' => \Illuminate\Support\Str::slug($name),
-                'description' => $description,
                 'parent_id' => $rootCategories['Power Tools']->id,
+            ], [
+                'name' => $name,
+                'description' => $description,
             ]);
         }
 
@@ -120,11 +123,12 @@ class DatabaseSeeder extends Seeder
         ];
         
         foreach ($electricalSubs as $name => $description) {
-            $subcategories['Electrical Components'][] = Category::create([
-                'name' => $name,
+            $subcategories['Electrical Components'][] = Category::firstOrCreate([
                 'slug' => \Illuminate\Support\Str::slug($name),
-                'description' => $description,
                 'parent_id' => $rootCategories['Electrical Components']->id,
+            ], [
+                'name' => $name,
+                'description' => $description,
             ]);
         }
 
@@ -137,11 +141,12 @@ class DatabaseSeeder extends Seeder
         ];
         
         foreach ($safetySubs as $name => $description) {
-            $subcategories['Safety Equipment'][] = Category::create([
-                'name' => $name,
+            $subcategories['Safety Equipment'][] = Category::firstOrCreate([
                 'slug' => \Illuminate\Support\Str::slug($name),
-                'description' => $description,
                 'parent_id' => $rootCategories['Safety Equipment']->id,
+            ], [
+                'name' => $name,
+                'description' => $description,
             ]);
         }
 

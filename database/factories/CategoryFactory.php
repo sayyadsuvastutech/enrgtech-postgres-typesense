@@ -18,7 +18,7 @@ class CategoryFactory extends Factory
 
         return [
             'name' => $name,
-            'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+            'slug' => $this->generateUniqueSlug($name),
             'description' => $this->faker->sentence(10),
             'parent_id' => null,
         ];
@@ -33,7 +33,7 @@ class CategoryFactory extends Factory
             
             return [
                 'name' => $name,
-                'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+                'slug' => $this->generateUniqueSlug($name),
                 'description' => "Professional {$name} for construction and electrical work",
                 'parent_id' => null,
             ];
@@ -52,7 +52,7 @@ class CategoryFactory extends Factory
 
             return [
                 'name' => $name,
-                'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+                'slug' => $this->generateUniqueSlug($name),
                 'description' => "High-quality {$name} for professional use",
             ];
         });
@@ -70,7 +70,7 @@ class CategoryFactory extends Factory
 
             return [
                 'name' => $name,
-                'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+                'slug' => $this->generateUniqueSlug($name),
                 'description' => "Professional {$name} for heavy-duty applications",
             ];
         });
@@ -88,7 +88,7 @@ class CategoryFactory extends Factory
 
             return [
                 'name' => $name,
-                'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+                'slug' => $this->generateUniqueSlug($name),
                 'description' => "Reliable {$name} for electrical installations",
             ];
         });
@@ -106,10 +106,18 @@ class CategoryFactory extends Factory
 
             return [
                 'name' => $name,
-                'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+                'slug' => $this->generateUniqueSlug($name),
                 'description' => "Essential {$name} for workplace safety",
             ];
         });
+    }
+
+    private function generateUniqueSlug(string $name): string
+    {
+        $baseSlug = Str::slug($name);
+        $timestamp = now()->getTimestamp();
+        $random = $this->faker->numberBetween(1000, 9999);
+        return $baseSlug . '-' . $timestamp . '-' . $random;
     }
 
     public function withParent($parentId): static

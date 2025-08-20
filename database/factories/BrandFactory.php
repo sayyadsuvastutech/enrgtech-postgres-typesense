@@ -33,7 +33,7 @@ class BrandFactory extends Factory
 
         return [
             'name' => $name,
-            'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+            'slug' => $this->generateUniqueSlug($name),
             'description' => $this->generateBrandDescription($name),
             'logo_url' => "https://picsum.photos/200/100?random=" . $this->faker->numberBetween(1, 1000),
         ];
@@ -51,7 +51,7 @@ class BrandFactory extends Factory
 
             return [
                 'name' => $name,
-                'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+                'slug' => $this->generateUniqueSlug($name),
                 'description' => "Leading manufacturer of professional power tools and accessories for construction, electrical, and industrial applications.",
             ];
         });
@@ -69,7 +69,7 @@ class BrandFactory extends Factory
 
             return [
                 'name' => $name,
-                'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+                'slug' => $this->generateUniqueSlug($name),
                 'description' => "Trusted brand for electrical tools, components, and testing equipment used by electricians and electrical contractors.",
             ];
         });
@@ -87,7 +87,7 @@ class BrandFactory extends Factory
 
             return [
                 'name' => $name,
-                'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+                'slug' => $this->generateUniqueSlug($name),
                 'description' => "Premium hand tools designed for professional tradespeople and serious DIY enthusiasts.",
             ];
         });
@@ -105,10 +105,18 @@ class BrandFactory extends Factory
 
             return [
                 'name' => $name,
-                'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+                'slug' => $this->generateUniqueSlug($name),
                 'description' => "Industry leader in personal protective equipment and workplace safety solutions.",
             ];
         });
+    }
+
+    private function generateUniqueSlug(string $name): string
+    {
+        $baseSlug = Str::slug($name);
+        $timestamp = now()->getTimestamp();
+        $random = $this->faker->numberBetween(1000, 9999);
+        return $baseSlug . '-' . $timestamp . '-' . $random;
     }
 
     private function generateBrandDescription(string $brandName): string

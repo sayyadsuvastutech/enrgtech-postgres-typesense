@@ -37,7 +37,7 @@ class ManufacturerFactory extends Factory
         
         return [
             'name' => $name,
-            'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+            'slug' => $this->generateUniqueSlug($name),
             'description' => $this->generateManufacturerDescription($name, $isReal),
             'contact_info' => [
                 'website' => $this->generateWebsite($name),
@@ -57,7 +57,7 @@ class ManufacturerFactory extends Factory
             
             return [
                 'name' => $name,
-                'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+                'slug' => $this->generateUniqueSlug($name),
                 'description' => $this->generateManufacturerDescription($name, true),
                 'contact_info' => [
                     'website' => $this->generateWebsite($name),
@@ -76,7 +76,7 @@ class ManufacturerFactory extends Factory
             
             return [
                 'name' => $name,
-                'slug' => Str::slug($name) . '-' . $this->faker->numberBetween(1000, 9999),
+                'slug' => $this->generateUniqueSlug($name),
                 'description' => $this->generateManufacturerDescription($name, false),
                 'contact_info' => [
                     'website' => $this->generateWebsite($name),
@@ -148,6 +148,14 @@ class ManufacturerFactory extends Factory
         ];
         
         return $this->faker->randomElement($cities);
+    }
+
+    private function generateUniqueSlug(string $name): string
+    {
+        $baseSlug = Str::slug($name);
+        $timestamp = now()->getTimestamp();
+        $random = $this->faker->numberBetween(1000, 9999);
+        return $baseSlug . '-' . $timestamp . '-' . $random;
     }
 
     public function withCountry(string $country): static
