@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -33,16 +34,18 @@ return new class extends Migration
             $table->string('brand_name');
             $table->string('manufacturer_name');
             
-            // JSON fields for flexible data
-            $table->json('images')->nullable();
-            $table->json('thumbnails')->nullable();
-            $table->json('attributes')->nullable();
+            // JSONB fields for flexible data (better performance for PostgreSQL)
+            $table->jsonb('images')->nullable();
+            $table->jsonb('thumbnails')->nullable();
+            $table->jsonb('attributes')->nullable();
             
-            // PostgreSQL tsvector for full-text search
-            $table->tsvector('search_vector')->nullable();
+            // PostgreSQL tsvector for full-text search - will be added via raw SQL
             
             $table->timestamps();
         });
+        
+        // Add tsvector column for full-text search using raw SQL
+        DB::statement('ALTER TABLE products ADD COLUMN search_vector tsvector');
     }
 
     /**
