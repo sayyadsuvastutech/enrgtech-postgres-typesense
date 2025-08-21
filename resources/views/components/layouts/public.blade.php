@@ -25,7 +25,7 @@
                            wire:navigate>
                             Home
                         </a>
-                        <a href="{{ route('products.search') }}"
+                        <a href="{{ route('home') }}"
                            class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium transition-colors {{ request()->routeIs('products.search') ? 'text-blue-600 bg-blue-50' : '' }}"
                            wire:navigate>
                             Products

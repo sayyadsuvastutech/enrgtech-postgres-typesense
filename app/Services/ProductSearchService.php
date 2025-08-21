@@ -20,7 +20,7 @@ class ProductSearchService
     {
         $query = $this->buildOptimizedQuery($params);
 
-        return $query->simplePaginate(
+        return $query->paginate(
             perPage: $params['per_page'] ?? 20,
             page: $params['page'] ?? 1
         );
