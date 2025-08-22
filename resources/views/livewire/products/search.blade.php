@@ -54,7 +54,7 @@ class extends Component {
     public function mount(): void
     {
         $searchService = app(ProductSearchService::class);
-        $searchService->clearCache();
+//        $searchService->clearCache();
         $this->filterOptions = $searchService->getFilterOptions();
     }
 
