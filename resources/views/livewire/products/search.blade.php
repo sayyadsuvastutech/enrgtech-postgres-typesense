@@ -332,13 +332,13 @@ class extends Component {
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
                      wire:loading.class="opacity-50">
                     @forelse($this->getProducts as $product)
-                        <div
-                            class="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+                        <a href="{{ route('products.show', $product) }}"
+                            class="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group cursor-pointer">
                             <!-- Product Image -->
                             <div class="aspect-square bg-gray-50 relative">
                                 <img src="/images/place_holder.svg"
                                      alt="{{ $product->name }}"
-                                     class="w-full h-full object-cover"
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                      loading="lazy">
 
                                 <!-- Stock Badge -->
@@ -363,7 +363,7 @@ class extends Component {
                                 </div>
 
                                 <!-- Product Name -->
-                                <h3 class="font-semibold text-gray-900 line-clamp-2 text-sm leading-5">
+                                <h3 class="font-semibold text-gray-900 line-clamp-2 text-sm leading-5 group-hover:text-blue-600 transition-colors">
                                     {{ $product->name }}
                                 </h3>
 
@@ -382,7 +382,7 @@ class extends Component {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </a>
                     @empty
                         <div class="col-span-full text-center py-12">
                             <svg class="h-12 w-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24"

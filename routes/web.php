@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
 Volt::route('/', 'products.search')->name('home');
+Volt::route('/products', 'products.search')->name('products.search');
+Volt::route('/products/{product}', 'products.show')->name('products.show');
 
 Route::view('dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])
