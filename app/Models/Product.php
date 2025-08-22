@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 class Product extends Model
 {
     use HasFactory;
+
     protected $fillable = [
         'name',
         'slug',
@@ -92,33 +93,6 @@ class Product extends Model
         return $query->where('manufacturer_id', $manufacturerId);
     }
 
-    public function scopeFullTextSearch(Builder $query, string $searchTerm): Builder
-    {
-        return $query->whereRaw(
-            "search_vector @@ plainto_tsquery('english', ?)",
-            [$searchTerm]
-        );
-    }
-
-
-    /**
-     * Semantic search with multi-factor scoring and Google-like operators
-     */
-    public function scopeSemanticSearch(Builder $query, string $searchTerm): Builder
-    {
-        $normalizedTerm = trim($searchTerm);
-
-        if (empty($normalizedTerm)) {
-            return $query->where('id', '<', 0); // No results for empty search
-        }
-
-        return $query->selectRaw("
-            products.*,
-            semantic_search_score(?, name, sku, description, category_name, brand_name, search_vector) as total_score
-        ", [$normalizedTerm])
-        ->whereRaw("semantic_search_match(?, name, sku, description, search_vector)", [$normalizedTerm])
-        ->orderBy('total_score', 'desc');
-    }
 
     /**
      * Full-text search using websearch_to_tsquery for Google-like operators
@@ -148,69 +122,127 @@ class Product extends Model
         )->orderBy('search_rank', 'desc');
     }
 
-    /**
-     * Fuzzy search using trigram similarity
-     */
-    public function scopeFuzzySearch(Builder $query, string $searchTerm, float $threshold = 0.3): Builder
+
+    public function scopeSearch2($query, string $term)
     {
+        // Convert to tsquery with prefix search
+        $tsquery = implode(' & ', array_map(fn($t) => $t . ':*', explode(' ', $term)));
+
+        return $query->selectRaw('products.*,
+            ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) AS fts_score,
+            similarity(name, ?) AS trigram_score,
+            1.0 / (1 + levenshtein(lower(name), lower(?))) AS levenshtein_score,
+            (
+              0.6 * ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) +
+              0.3 * similarity(name, ?) +
+              0.1 * (1.0 / (1 + levenshtein(lower(name), lower(?))))
+            ) AS total_score',
+            [$tsquery, $term, $term, $tsquery, $term, $term]
+        )
+            ->where('status', 'active')
+            ->where(function ($q) use ($tsquery, $term) {
+                $q->whereRaw('ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) > 0', [$tsquery])
+                    ->orWhereRaw('similarity(name, ?) > 0.1', [$term]) // relaxed threshold
+                    ->orWhereRaw('levenshtein(lower(name), lower(?)) <= 3', [$term])
+                    ->orWhereRaw('name ILIKE ?', ["%$term%"]); // extra safety net
+            })
+            ->orderByDesc('total_score');
+    }
+
+
+    public function scopeSearch($query, string $term)
+    {
+        // Convert to tsquery with prefix search
+        $tsquery = implode(' & ', array_map(fn($t) => $t . ':*', explode(' ', $term)));
+
+        return $query->selectRaw('products.*,
+        ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) AS fts_score,
+        similarity(name, ?) AS trigram_score,
+
+        -- Word-level Levenshtein: find the best matching word in the title
+        (
+            SELECT MAX(1.0 / (1 + levenshtein(lower(word), lower(?))))
+            FROM unnest(string_to_array(regexp_replace(lower(name), \'[^a-z0-9 ]\', \' \', \'g\'), \' \')) AS word
+            WHERE length(word) > 1
+        ) AS word_levenshtein_score,
+
+        (
+          0.5 * ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) +
+          0.3 * similarity(name, ?) +
+          0.2 * COALESCE((
+              SELECT MAX(1.0 / (1 + levenshtein(lower(word), lower(?))))
+              FROM unnest(string_to_array(regexp_replace(lower(name), \'[^a-z0-9 ]\', \' \', \'g\'), \' \')) AS word
+              WHERE length(word) > 1
+          ), 0)
+        ) AS total_score',
+            [$tsquery, $term, $term, $tsquery, $term, $term]
+        )
+            ->where('status', 'active')
+            ->where(function ($q) use ($tsquery, $term) {
+                $q->whereRaw('ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) > 0', [$tsquery])
+                    ->orWhereRaw('similarity(name, ?) > 0.1', [$term])
+
+//                -- Word-level Levenshtein filter: check if ANY word is close enough
+                    ->orWhereRaw('
+              EXISTS (
+                  SELECT 1
+                  FROM unnest(string_to_array(regexp_replace(lower(name), \'[^a-z0-9 ]\', \' \', \'g\'), \' \')) AS word
+                  WHERE length(word) > 1 AND levenshtein(lower(word), lower(?)) <= 2
+              )
+          ', [$term])
+
+                    ->orWhereRaw('name ILIKE ?', ["%$term%"]);
+    })
+            ->orderByDesc('total_score');
+    }
+
+    public function scopeSearchnew($query, string $term, int $limit = 50)
+    {
+        // Sanitize and prepare the search term
+        $term = trim($term);
+        if (empty($term)) {
+            return $query->where('status', 'active')->orderBy('name')->limit($limit);
+        }
+
+        // Convert to tsquery with prefix search (use 'simple' dictionary for misspellings)
+        $tsquery = implode(' & ', array_map(fn($t) => $t . ':*', array_filter(explode(' ', $term))));
+
+        // Compute Levenshtein score once
+        $levenshteinSubquery = "
+        COALESCE((
+            SELECT MAX(1.0 / (1 + levenshtein(lower(word), lower(?))))
+            FROM unnest(string_to_array(regexp_replace(lower(name), '[^a-z0-9 ]', ' ', 'g'), ' ')) AS word
+            WHERE length(word) > 2
+        ), 0)";
+
         return $query->selectRaw("
-            *,
-            GREATEST(
-                similarity(name, ?),
-                similarity(sku, ?),
-                COALESCE(similarity(description, ?), 0)
-            ) as fuzzy_score
-        ", [$searchTerm, $searchTerm, $searchTerm])
-        ->whereRaw("
-            similarity(name, ?) > ? OR
-            similarity(sku, ?) > ? OR
-            similarity(description, ?) > ?
-        ", [$searchTerm, $threshold, $searchTerm, $threshold, $searchTerm, $threshold])
-        ->orderBy('fuzzy_score', 'desc');
+        products.*,
+        ts_rank_cd(search_vector, to_tsquery('simple', ?)) AS fts_score,
+        similarity(name, ?) AS trigram_score,
+        {$levenshteinSubquery} AS word_levenshtein_score,
+        (
+            0.4 * ts_rank_cd(search_vector, to_tsquery('simple', ?)) +
+            0.3 * similarity(name, ?) +
+            0.3 * {$levenshteinSubquery}
+        ) AS total_score",
+            [$tsquery, $term, $term, $tsquery, $term, $term]
+        )
+            ->where('status', 'active')
+            ->where(function ($q) use ($tsquery, $term) {
+                $q->whereRaw("ts_rank_cd(search_vector, to_tsquery('simple', ?)) > 0", [$tsquery])
+                    ->orWhereRaw("similarity(name, ?) > 0.2", [$term])
+                    ->orWhereRaw("
+                    EXISTS (
+                        SELECT 1
+                        FROM unnest(string_to_array(regexp_replace(lower(name), '[^a-z0-9 ]', ' ', 'g'), ' ')) AS word
+                        WHERE length(word) > 2 AND levenshtein(lower(word), lower(?)) <= 2
+                    )", [$term]);
+            })
+            ->orderByDesc('total_score')
+            ->limit($limit);
     }
 
-    /**
-     * Levenshtein distance search for edit distance matching
-     */
-    public function scopeLevenshteinSearch(Builder $query, string $searchTerm, int $maxDistance = 3): Builder
-    {
-        return $query->selectRaw("
-            *,
-            LEAST(
-                levenshtein(name, ?),
-                levenshtein(sku, ?),
-                COALESCE(levenshtein(description, ?), 999)
-            ) as edit_distance
-        ", [$searchTerm, $searchTerm, $searchTerm])
-        ->whereRaw("
-            levenshtein(name, ?) <= ? OR
-            levenshtein(sku, ?) <= ? OR
-            levenshtein(description, ?) <= ?
-        ", [$searchTerm, $maxDistance, $searchTerm, $maxDistance, $searchTerm, $maxDistance])
-        ->orderBy('edit_distance', 'asc');
-    }
 
-    /**
-     * Combined search with multiple strategies
-     */
-    public function scopeSearchWithRank($query, $searchTerm)
-    {
-        return $this->scopeSemanticSearch($query, $searchTerm);
-    }
-
-    /**
-     * Legacy support - simple full-text search
-     */
-    public function scopeSearch($query, $searchTerm)
-    {
-        return $query->whereRaw(
-            "search_vector @@ plainto_tsquery('english', ?)",
-            [$searchTerm]
-        )->orderByRaw(
-            "ts_rank(search_vector, plainto_tsquery('english', ?)) DESC",
-            [$searchTerm]
-        );
-    }
 
     public function scopeWithJsonAttribute(Builder $query, string $key, $value): Builder
     {

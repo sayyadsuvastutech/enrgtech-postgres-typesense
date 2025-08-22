@@ -27,12 +27,7 @@ class Manufacturer extends Model
     {
         return $this->hasMany(Product::class);
     }
-
-    public function scopeWithProducts($query)
-    {
-        return $query->has('products');
-    }
-
+    
     public function scopePopular($query, int $limit = 10)
     {
         return $query->withCount('products')

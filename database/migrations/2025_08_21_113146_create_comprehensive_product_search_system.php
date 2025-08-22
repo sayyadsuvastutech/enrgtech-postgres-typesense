@@ -12,34 +12,51 @@ return new class extends Migration
      *
      * This migration creates a comprehensive PostgreSQL-based product search system
      * with semantic search capabilities, fuzzy matching, and performance-optimized indexes.
+     *
+     * Index Creation Order:
+     * 1. PostgreSQL Extensions
+     * 2. Search Vector Triggers
+     * 3. Core Performance Indexes (most frequently used)
+     * 4. Full-Text Search Indexes
+     * 5. Fuzzy Matching Indexes
+     * 6. Sorting & Filtering Indexes
+     * 7. Composite Indexes (multi-field)
+     * 8. JSONB Indexes
      */
     public function up(): void
     {
-        // Enable essential PostgreSQL extensions for advanced search features
+        // Step 1: Enable PostgreSQL extensions
         $this->enablePostgreSQLExtensions();
 
-        // Create database functions for semantic search and text processing
-        $this->createSemanticSearchFunctions();
-
-        // Create the search vector trigger for automatic index maintenance
+        // Step 2: Create search vector trigger
         $this->createSearchVectorTrigger();
 
-        // Create performance-optimized indexes for various search scenarios
-        $this->createFullTextSearchIndexes();
-        $this->createFuzzyMatchingIndexes();
-        $this->createPerformanceIndexes();
-        $this->createCompositeIndexes();
-        $this->createJsonbIndexes();
+        // Step 3: Core performance indexes (most critical)
+        $this->createCorePerformanceIndexes();
 
-        // Update existing records to populate search vectors
-        $this->updateExistingRecords();
+        // Step 4: Full-text search indexes
+        $this->createFullTextSearchIndexes();
+
+        // Step 5: Fuzzy matching indexes
+        $this->createFuzzyMatchingIndexes();
+
+        // Step 6: Sorting and filtering indexes
+        $this->createSortingAndFilteringIndexes();
+
+        // Step 7: Composite indexes for complex queries
+        $this->createCompositeIndexes();
+
+        // Step 8: JSONB indexes for structured data
+        $this->createJsonbIndexes();
     }
 
     /**
-     * Enable PostgreSQL extensions required for advanced search functionality
+     * Step 1: Enable PostgreSQL extensions required for advanced search functionality
      */
     private function enablePostgreSQLExtensions(): void
     {
+        echo "Creating PostgreSQL extensions...\n";
+
         // pg_trgm: Provides trigram matching for similarity searches and fuzzy text matching
         DB::statement('CREATE EXTENSION IF NOT EXISTS pg_trgm;');
 
@@ -51,336 +68,31 @@ return new class extends Migration
     }
 
     /**
-     * Create semantic search and text processing functions
-     */
-    private function createSemanticSearchFunctions(): void
-    {
-        // Function to normalize electrical specifications and units for better search matching
-        DB::statement("
-            CREATE OR REPLACE FUNCTION normalize_electrical_specs(input_text text)
-            RETURNS text AS $$
-            DECLARE
-                normalized_text text;
-            BEGIN
-                normalized_text := input_text;
-
-                -- Normalize amperage units (A, amp, ampere, amps) -> searchable variants
-                -- Example: '10A' becomes '10 amp ampere A' for better matching
-                normalized_text := regexp_replace(normalized_text, '(\d+(\.\d+)?)\s*A(?!\w)', '\1 amp ampere A', 'gi');
-                normalized_text := regexp_replace(normalized_text, '(\d+(\.\d+)?)\s*amps?', '\1 amp ampere A', 'gi');
-                normalized_text := regexp_replace(normalized_text, '(\d+(\.\d+)?)\s*amperes?', '\1 amp ampere A', 'gi');
-
-                -- Normalize voltage units (V, volt, volts) -> searchable variants
-                normalized_text := regexp_replace(normalized_text, '(\d+(\.\d+)?)\s*V(?!\w)', '\1 volt volts V', 'gi');
-                normalized_text := regexp_replace(normalized_text, '(\d+(\.\d+)?)\s*volts?', '\1 volt volts V', 'gi');
-
-                -- Normalize wattage units (W, watt, watts) -> searchable variants
-                normalized_text := regexp_replace(normalized_text, '(\d+(\.\d+)?)\s*W(?!\w)', '\1 watt watts W', 'gi');
-                normalized_text := regexp_replace(normalized_text, '(\d+(\.\d+)?)\s*watts?', '\1 watt watts W', 'gi');
-
-                -- Normalize resistance units (Ω, ohm, ohms) -> searchable variants
-                normalized_text := regexp_replace(normalized_text, '(\d+(\.\d+)?)\s*[Ωω]', '\1 ohm ohms omega', 'gi');
-                normalized_text := regexp_replace(normalized_text, '(\d+(\.\d+)?)\s*ohms?', '\1 ohm ohms omega', 'gi');
-
-                -- Normalize frequency units (Hz, hertz) -> searchable variants
-                normalized_text := regexp_replace(normalized_text, '(\d+(\.\d+)?)\s*Hz', '\1 hertz hz frequency', 'gi');
-                normalized_text := regexp_replace(normalized_text, '(\d+(\.\d+)?)\s*hertz', '\1 hertz hz frequency', 'gi');
-
-                -- Add electrical component synonyms for better semantic search
-                normalized_text := regexp_replace(normalized_text, '\bfuse\b', 'fuse fuze circuit_breaker protection', 'gi');
-                normalized_text := regexp_replace(normalized_text, '\bbreaker\b', 'breaker fuse circuit_breaker protection', 'gi');
-                normalized_text := regexp_replace(normalized_text, '\btime.?delay\b', 'time_delay slow_blow delayed', 'gi');
-                normalized_text := regexp_replace(normalized_text, '\bfast.?blow\b', 'fast_blow quick_acting immediate', 'gi');
-                normalized_text := regexp_replace(normalized_text, '\belectrical\b', 'electrical electric electronic', 'gi');
-
-                -- Normalize spacing around numbers and units for consistent tokenization
-                normalized_text := regexp_replace(normalized_text, '(\d)([A-Za-z])', '\1 \2', 'g');
-                normalized_text := regexp_replace(normalized_text, '([A-Za-z])(\d)', '\1 \2', 'g');
-
-                -- Clean up multiple spaces and trim
-                normalized_text := regexp_replace(normalized_text, '\s+', ' ', 'g');
-                normalized_text := trim(normalized_text);
-
-                RETURN normalized_text;
-            END;
-            $$ LANGUAGE plpgsql IMMUTABLE;
-        ");
-
-        // Function to determine if a search term matches a product using multiple strategies
-        DB::statement("
-            CREATE OR REPLACE FUNCTION semantic_search_match(
-                search_term text,
-                product_name text,
-                product_sku text,
-                product_description text DEFAULT NULL,
-                search_vector tsvector DEFAULT NULL
-            ) RETURNS boolean AS $$
-            DECLARE
-                term_clean text;
-                exact_match boolean DEFAULT false;
-                fuzzy_match boolean DEFAULT false;
-                fulltext_match boolean DEFAULT false;
-            BEGIN
-                term_clean := trim(lower(search_term));
-
-                -- Return false for empty search terms
-                IF term_clean = '' THEN
-                    RETURN false;
-                END IF;
-
-                -- Exact substring matches (highest confidence)
-                -- Checks for exact occurrences within product fields
-                exact_match := (
-                    lower(product_name) LIKE '%' || term_clean || '%' OR
-                    lower(product_sku) LIKE '%' || term_clean || '%' OR
-                    (product_description IS NOT NULL AND lower(product_description) LIKE '%' || term_clean || '%')
-                );
-
-                -- Full-text search using PostgreSQL's built-in text search
-                -- Uses websearch_to_tsquery for Google-like query syntax support
-                IF search_vector IS NOT NULL THEN
-                    fulltext_match := search_vector @@ websearch_to_tsquery('english', search_term);
-                END IF;
-
-                -- Fuzzy matching using trigram similarity for typo tolerance
-                -- Similarity thresholds: name=0.3, sku=0.3, description=0.2
-                fuzzy_match := (
-                    similarity(product_name, search_term) > 0.3 OR
-                    similarity(product_sku, search_term) > 0.3 OR
-                    (product_description IS NOT NULL AND similarity(product_description, search_term) > 0.2)
-                );
-
-                -- Product matches if ANY strategy succeeds
-                RETURN exact_match OR fulltext_match OR fuzzy_match;
-            END;
-            $$ LANGUAGE plpgsql IMMUTABLE;
-        ");
-
-        // Function to calculate semantic search relevance score using multiple factors
-        DB::statement("
-            CREATE OR REPLACE FUNCTION semantic_search_score(
-                search_term text,
-                product_name text,
-                product_sku text,
-                product_description text DEFAULT NULL,
-                category_name text DEFAULT NULL,
-                brand_name text DEFAULT NULL,
-                search_vector tsvector DEFAULT NULL
-            ) RETURNS float AS $$
-            DECLARE
-                total_score float DEFAULT 0.0;
-                term_clean text;
-                exact_score float DEFAULT 0.0;      -- 15-20 points for exact matches
-                fuzzy_score float DEFAULT 0.0;      -- 5-10 points for similarity
-                fulltext_score float DEFAULT 0.0;   -- 10-15 points for full-text relevance
-                category_score float DEFAULT 0.0;   -- 3-6 points for category match
-                brand_score float DEFAULT 0.0;      -- 3-6 points for brand match
-                description_score float DEFAULT 0.0; -- 1-3 points for description match
-                name_bonus float DEFAULT 0.0;       -- Bonus for multi-word searches
-                sku_bonus float DEFAULT 0.0;        -- Bonus for electrical spec patterns
-            BEGIN
-                term_clean := trim(lower(search_term));
-
-                -- Return 0 score for empty search terms
-                IF term_clean = '' THEN
-                    RETURN 0.0;
-                END IF;
-
-                -- Exact match scoring (highest priority: 15-20 points)
-                IF lower(product_name) = term_clean THEN
-                    exact_score := 20.0;  -- Perfect product name match
-                ELSIF lower(product_sku) = term_clean THEN
-                    exact_score := 18.0;  -- Perfect SKU match
-                ELSIF lower(product_name) LIKE '%' || term_clean || '%' THEN
-                    exact_score := 15.0;  -- Partial product name match
-                ELSIF lower(product_sku) LIKE '%' || term_clean || '%' THEN
-                    exact_score := 15.0;  -- Partial SKU match
-                END IF;
-
-                -- Full-text relevance scoring (10-15 points)
-                -- Uses PostgreSQL's ts_rank_cd with normalization flags
-                IF search_vector IS NOT NULL THEN
-                    fulltext_score := ts_rank_cd(search_vector, websearch_to_tsquery('english', search_term), 32) * 15.0;
-                END IF;
-
-                -- Fuzzy similarity scoring (5-10 points)
-                -- Higher weight for name and SKU matches
-                fuzzy_score := GREATEST(
-                    similarity(product_name, search_term) * 10.0,   -- Product name similarity
-                    similarity(product_sku, search_term) * 8.0,     -- SKU similarity
-                    COALESCE(similarity(product_description, search_term), 0.0) * 6.0  -- Description similarity
-                );
-
-                -- Category match scoring (3-6 points)
-                IF category_name IS NOT NULL THEN
-                    IF lower(category_name) LIKE '%' || term_clean || '%' THEN
-                        category_score := 6.0;  -- Exact category match
-                    ELSIF similarity(category_name, search_term) > 0.4 THEN
-                        category_score := similarity(category_name, search_term) * 4.0;  -- Fuzzy category match
-                    END IF;
-                END IF;
-
-                -- Brand match scoring (3-6 points)
-                IF brand_name IS NOT NULL THEN
-                    IF lower(brand_name) LIKE '%' || term_clean || '%' THEN
-                        brand_score := 6.0;  -- Exact brand match
-                    ELSIF similarity(brand_name, search_term) > 0.4 THEN
-                        brand_score := similarity(brand_name, search_term) * 4.0;  -- Fuzzy brand match
-                    END IF;
-                END IF;
-
-                -- Description match scoring (1-3 points)
-                IF product_description IS NOT NULL THEN
-                    IF lower(product_description) LIKE '%' || term_clean || '%' THEN
-                        description_score := 3.0;  -- Exact description match
-                    ELSIF similarity(product_description, search_term) > 0.3 THEN
-                        description_score := similarity(product_description, search_term) * 2.0;  -- Fuzzy description match
-                    END IF;
-                END IF;
-
-                -- Multi-word search bonus (0.5 points per additional word)
-                -- Rewards comprehensive searches
-                IF strpos(search_term, ' ') > 0 THEN
-                    name_bonus := (length(search_term) - length(replace(search_term, ' ', ''))) * 0.5;
-                END IF;
-
-                -- Electrical specification pattern bonus (2 points)
-                -- Rewards searches for electrical specs like '10A', '125V'
-                IF product_sku ~ '\d+[A-Z]+' AND search_term ~ '\d+\s*[A-Z]+' THEN
-                    sku_bonus := 2.0;
-                END IF;
-
-                -- Calculate total relevance score
-                total_score := exact_score + fulltext_score + fuzzy_score + category_score +
-                              brand_score + description_score + name_bonus + sku_bonus;
-
-                RETURN GREATEST(total_score, 0.0);
-            END;
-            $$ LANGUAGE plpgsql IMMUTABLE;
-        ");
-
-        // Function to parse electrical specifications from text
-        DB::statement("
-            CREATE OR REPLACE FUNCTION parse_electrical_specs(input_text text)
-            RETURNS table(value numeric, unit text) AS $$
-            BEGIN
-                -- Extract numeric values with electrical units using regex
-                -- Matches patterns like: 10A, 125V, 15W, 2.5Ω, 60Hz
-                RETURN QUERY
-                SELECT
-                    (regexp_matches(input_text, '(\d+(?:\.\d+)?)\s*([AaVvWwΩω]|[Aa]mp|[Vv]olt|[Ww]att|[Oo]hm)', 'gi'))[1]::numeric as value,
-                    lower((regexp_matches(input_text, '(\d+(?:\.\d+)?)\s*([AaVvWwΩω]|[Aa]mp|[Vv]olt|[Ww]att|[Oo]hm)', 'gi'))[2]) as unit;
-            END;
-            $$ LANGUAGE plpgsql IMMUTABLE;
-        ");
-
-        // Function to generate search suggestions with fuzzy matching
-        DB::statement("
-            CREATE OR REPLACE FUNCTION get_search_suggestions(
-                search_term text,
-                suggestion_limit integer DEFAULT 5
-            ) RETURNS table(suggestion text, score float, type text) AS $$
-            BEGIN
-                -- Return suggested search terms based on product data
-                -- Combines product names, SKUs, and category names with similarity scoring
-                RETURN QUERY
-                WITH name_suggestions AS (
-                    SELECT DISTINCT
-                        name as suggestion,
-                        similarity(name, search_term) as score,
-                        'product' as type
-                    FROM products
-                    WHERE status = 'active'
-                    AND (similarity(name, search_term) > 0.2 OR name ILIKE '%' || search_term || '%')
-                    ORDER BY similarity(name, search_term) DESC
-                    LIMIT suggestion_limit
-                ),
-                sku_suggestions AS (
-                    SELECT DISTINCT
-                        sku as suggestion,
-                        similarity(sku, search_term) as score,
-                        'sku' as type
-                    FROM products
-                    WHERE status = 'active'
-                    AND (similarity(sku, search_term) > 0.2 OR sku ILIKE '%' || search_term || '%')
-                    ORDER BY similarity(sku, search_term) DESC
-                    LIMIT 2
-                ),
-                category_suggestions AS (
-                    SELECT DISTINCT
-                        category_name as suggestion,
-                        similarity(category_name, search_term) as score,
-                        'category' as type
-                    FROM products
-                    WHERE status = 'active'
-                    AND (similarity(category_name, search_term) > 0.3 OR category_name ILIKE '%' || search_term || '%')
-                    ORDER BY similarity(category_name, search_term) DESC
-                    LIMIT 2
-                )
-                SELECT * FROM name_suggestions
-                UNION ALL
-                SELECT * FROM sku_suggestions
-                UNION ALL
-                SELECT * FROM category_suggestions
-                ORDER BY score DESC
-                LIMIT suggestion_limit;
-            END;
-            $$ LANGUAGE plpgsql;
-        ");
-    }
-
-    /**
-     * Create trigger function and trigger to automatically maintain search vectors
+     * Step 2: Create trigger function and trigger to automatically maintain search vectors
      */
     private function createSearchVectorTrigger(): void
     {
-        // Drop existing trigger and function if they exist
-        DB::statement("DROP TRIGGER IF EXISTS products_search_vector_trigger ON products;");
-        DB::statement("DROP FUNCTION IF EXISTS update_product_search_vector();");
+        echo "Creating search vector trigger...\n";
 
-        // Create enhanced trigger function with semantic processing
+        // Create the trigger function
         DB::statement("
             CREATE OR REPLACE FUNCTION update_product_search_vector()
             RETURNS TRIGGER AS $$
-            DECLARE
-                processed_text text;
-                attributes_text text DEFAULT '';
             BEGIN
-                -- Extract searchable text from JSONB attributes column
-                -- Converts key-value pairs into searchable text
-                IF NEW.attributes IS NOT NULL AND jsonb_typeof(NEW.attributes) = 'object' THEN
-                    SELECT string_agg(value::text, ' ')
-                    INTO attributes_text
-                    FROM jsonb_each_text(NEW.attributes)
-                    WHERE value::text IS NOT NULL AND value::text != '';
-
-                    attributes_text := COALESCE(attributes_text, '');
-                END IF;
-
-                -- Combine all searchable text fields
-                -- Includes product details and denormalized relationship names
-                processed_text :=
-                    COALESCE(NEW.name, '') || ' ' ||
-                    COALESCE(NEW.description, '') || ' ' ||
-                    COALESCE(NEW.sku, '') || ' ' ||
-                    COALESCE(NEW.category_name, '') || ' ' ||
-                    COALESCE(NEW.brand_name, '') || ' ' ||
-                    COALESCE(NEW.manufacturer_name, '') || ' ' ||
-                    attributes_text;
-
-                -- Apply electrical specification normalization
-                -- Converts '10A' to '10 amp ampere A' for better search matching
-                processed_text := normalize_electrical_specs(processed_text);
-
-                -- Generate the full-text search vector using English language stemming
-                NEW.search_vector = to_tsvector('english', processed_text);
-
+                NEW.search_vector = to_tsvector('english',
+                    coalesce(NEW.name, '') || ' ' ||
+                    coalesce(NEW.description, '') || ' ' ||
+                    coalesce(NEW.sku, '') || ' ' ||
+                    coalesce(NEW.category_name, '') || ' ' ||
+                    coalesce(NEW.brand_name, '') || ' ' ||
+                    coalesce(NEW.manufacturer_name, '')
+                );
                 RETURN NEW;
             END;
             $$ LANGUAGE plpgsql;
         ");
 
-//        -- Create trigger that fires on INSERT and UPDATE operations
+        // Create the trigger
         DB::statement("
             CREATE TRIGGER products_search_vector_trigger
                 BEFORE INSERT OR UPDATE ON products
@@ -390,289 +102,278 @@ return new class extends Migration
     }
 
     /**
-     * Create full-text search indexes for comprehensive text matching
+     * Step 3: Core performance indexes - most frequently used, create first
+     */
+    private function createCorePerformanceIndexes(): void
+    {
+        echo "Creating core performance indexes...\n";
+
+        // 3.1: Core status filter index - used in virtually all product queries
+        DB::statement('
+            CREATE INDEX IF NOT EXISTS products_status_idx
+            ON products (status)
+        ');
+
+        // 3.2: Combined status + name for most common sorting pattern
+        DB::statement('
+            CREATE INDEX IF NOT EXISTS products_status_name_idx
+            ON products (status, name) WHERE status = \'active\'
+        ');
+
+        // 3.3: Price filtering for e-commerce price range queries
+        DB::statement('
+            CREATE INDEX IF NOT EXISTS products_active_price_idx
+            ON products (price) WHERE status = \'active\'
+        ');
+
+        // 3.4: Created date sorting for "newest products"
+        DB::statement('
+            CREATE INDEX IF NOT EXISTS products_status_created_at_idx
+            ON products (status, created_at DESC) WHERE status = \'active\'
+        ');
+    }
+
+    /**
+     * Step 4: Full-text search indexes for comprehensive text matching
      */
     private function createFullTextSearchIndexes(): void
     {
-        // Primary GIN index on search_vector for all full-text queries
-        // Used by: @@ operator, ts_rank functions, semantic search
+        echo "Creating full-text search indexes...\n";
+
+        // 4.1: Primary GIN index on search_vector for all full-text queries
         DB::statement('
-            CREATE INDEX products_search_vector_gin_idx
+            CREATE INDEX IF NOT EXISTS products_search_vector_gin_idx
             ON products USING GIN (search_vector)
         ');
 
-        // Partial GIN index for active products only (covers 90%+ of queries)
-        // Smaller index size = faster queries for most common use case
+        // 4.2: Partial GIN index for active products only (covers 90%+ of queries)
         DB::statement('
-            CREATE INDEX products_active_search_vector_idx
+            CREATE INDEX IF NOT EXISTS products_active_search_vector_idx
             ON products USING GIN (search_vector)
             WHERE status = \'active\'
         ');
 
-        // Specialized text search indexes on individual fields for precise matching
-        // Used when searching specific fields rather than general search
+        // 4.3: Specialized text search indexes on individual fields
         DB::statement('
-            CREATE INDEX products_name_text_gin_idx
+            CREATE INDEX IF NOT EXISTS products_name_text_gin_idx
             ON products USING GIN (to_tsvector(\'english\', name))
             WHERE status = \'active\'
         ');
 
         DB::statement('
-            CREATE INDEX products_sku_text_gin_idx
+            CREATE INDEX IF NOT EXISTS products_sku_text_gin_idx
             ON products USING GIN (to_tsvector(\'english\', sku))
             WHERE status = \'active\'
         ');
     }
 
     /**
-     * Create fuzzy matching indexes for typo tolerance and similarity search
+     * Step 5: Fuzzy matching indexes for typo tolerance and similarity search
      */
     private function createFuzzyMatchingIndexes(): void
     {
-        // Trigram GIN indexes for similarity() function support
-        // Enables fuzzy matching with configurable similarity thresholds
+        echo "Creating fuzzy matching indexes...\n";
 
-        // Product name trigram index - primary search field
+        // 5.1: Trigram index for product names (typo tolerance)
         DB::statement('
-            CREATE INDEX products_name_trgm_gin_idx
+            CREATE INDEX IF NOT EXISTS products_name_trgm_gin_idx
             ON products USING GIN (name gin_trgm_ops)
             WHERE status = \'active\'
         ');
 
-        // SKU trigram index - important for electrical part numbers
+        // 5.2: Active-only trigram search for names (duplicate prevention)
         DB::statement('
-            CREATE INDEX products_sku_trgm_gin_idx
-            ON products USING GIN (sku gin_trgm_ops)
-            WHERE status = \'active\'
+            CREATE INDEX IF NOT EXISTS products_active_name_trgm_idx
+            ON products USING GIN (name gin_trgm_ops) WHERE status = \'active\'
         ');
 
-        // Description trigram index - for detailed product information
+        // 5.3: Trigram index for SKU fuzzy matching
         DB::statement('
-            CREATE INDEX products_description_trgm_gin_idx
-            ON products USING GIN (description gin_trgm_ops)
-            WHERE status = \'active\' AND description IS NOT NULL
-        ');
-
-        // Denormalized field trigram indexes for relationship-free searches
-        // Avoids JOINs by searching pre-stored category/brand names
-        DB::statement('
-            CREATE INDEX products_category_name_trgm_idx
-            ON products USING GIN (category_name gin_trgm_ops)
-            WHERE status = \'active\'
-        ');
-
-        DB::statement('
-            CREATE INDEX products_brand_name_trgm_idx
-            ON products USING GIN (brand_name gin_trgm_ops)
-            WHERE status = \'active\'
+            CREATE INDEX IF NOT EXISTS products_active_sku_trgm_idx
+            ON products USING GIN (sku gin_trgm_ops) WHERE status = \'active\'
         ');
     }
 
     /**
-     * Create performance indexes for filtering, sorting, and common queries
+     * Step 6: Sorting and filtering indexes for common UI patterns
      */
-    private function createPerformanceIndexes(): void
+    private function createSortingAndFilteringIndexes(): void
     {
-        // Core status filter index - used in virtually all product queries
-        // Simple B-tree index for equality checks
+        echo "Creating sorting and filtering indexes...\n";
+
+        // 6.1: Simple name sorting for active products
         DB::statement('
-            CREATE INDEX products_status_idx
-            ON products (status)
+            CREATE INDEX IF NOT EXISTS products_active_name_idx
+            ON products (name) WHERE status = \'active\'
         ');
 
-        // Price filtering indexes for e-commerce price range queries
+        // 6.2: Category filtering (EXISTS queries)
         DB::statement('
-            CREATE INDEX products_active_price_idx
-            ON products (price)
-            WHERE status = \'active\'
+            CREATE INDEX IF NOT EXISTS products_status_category_idx
+            ON products (status, category_id) WHERE status = \'active\'
         ');
 
-        // Stock availability index for in-stock filtering
-        // Partial index only for products with stock > 0
+        // 6.3: Brand filtering (EXISTS queries)
         DB::statement('
-            CREATE INDEX products_active_stock_idx
-            ON products (stock_quantity)
-            WHERE status = \'active\' AND stock_quantity > 0
+            CREATE INDEX IF NOT EXISTS products_status_brand_idx
+            ON products (status, brand_id) WHERE status = \'active\'
         ');
 
-        // Sorting indexes for common sort orders
-        // Product name alphabetical sorting
+        // 6.4: Manufacturer filtering (EXISTS queries)
         DB::statement('
-            CREATE INDEX products_active_name_sort_idx
-            ON products (name)
-            WHERE status = \'active\'
-        ');
-
-        // Creation date sorting (newest first) - common for product listings
-        DB::statement('
-            CREATE INDEX products_active_created_sort_idx
-            ON products (created_at DESC)
-            WHERE status = \'active\'
+            CREATE INDEX IF NOT EXISTS products_status_manufacturer_idx
+            ON products (status, manufacturer_id) WHERE status = \'active\'
         ');
     }
 
     /**
-     * Create composite indexes for complex query patterns and multi-field filtering
+     * Step 7: Composite indexes for complex query patterns and multi-field filtering
      */
     private function createCompositeIndexes(): void
     {
-        // Category-based filtering with sorting combinations
-        // Used for: category pages with name/price sorting
+        echo "Creating composite indexes...\n";
+
+        // 7.1: Category-based filtering with name sorting
         DB::statement('
-            CREATE INDEX products_active_category_name_idx
-            ON products (category_id, name)
-            WHERE status = \'active\'
+            CREATE INDEX IF NOT EXISTS products_status_category_name_idx
+            ON products (status, category_id, name) WHERE status = \'active\'
         ');
 
         DB::statement('
-            CREATE INDEX products_active_category_price_idx
-            ON products (category_id, price)
-            WHERE status = \'active\'
+            CREATE INDEX IF NOT EXISTS products_active_category_name_idx
+            ON products (category_id, name) WHERE status = \'active\'
         ');
 
-        // Brand-based filtering with sorting combinations
-        // Used for: brand pages with name/price sorting
+        // 7.2: Category-based filtering with price sorting
         DB::statement('
-            CREATE INDEX products_active_brand_name_idx
-            ON products (brand_id, name)
-            WHERE status = \'active\'
+            CREATE INDEX IF NOT EXISTS products_active_category_price_idx
+            ON products (category_id, price) WHERE status = \'active\'
+        ');
+
+        // 7.3: Brand-based filtering with name sorting
+        DB::statement('
+            CREATE INDEX IF NOT EXISTS products_status_brand_name_idx
+            ON products (status, brand_id, name) WHERE status = \'active\'
         ');
 
         DB::statement('
-            CREATE INDEX products_active_brand_price_idx
-            ON products (brand_id, price)
-            WHERE status = \'active\'
+            CREATE INDEX IF NOT EXISTS products_active_brand_name_idx
+            ON products (brand_id, name) WHERE status = \'active\'
         ');
 
-        // Multi-dimensional filtering combinations
-        // Used for: category + brand filtering (common e-commerce pattern)
+        // 7.4: Brand-based filtering with price sorting
         DB::statement('
-            CREATE INDEX products_category_brand_status_idx
-            ON products (category_id, brand_id, status)
-            WHERE status = \'active\'
+            CREATE INDEX IF NOT EXISTS products_active_brand_price_idx
+            ON products (brand_id, price) WHERE status = \'active\'
         ');
 
-        // Price range with category filtering
-        // Used for: price range sliders within categories
+        // 7.5: Manufacturer-based filtering with name sorting
         DB::statement('
-            CREATE INDEX products_active_price_category_idx
-            ON products (price, category_id)
-            WHERE status = \'active\'
+            CREATE INDEX IF NOT EXISTS products_status_manufacturer_name_idx
+            ON products (status, manufacturer_id, name) WHERE status = \'active\'
         ');
 
-        // Complex search + filter scenarios
-        // Separate B-tree index for common filtering combinations after search
+        // 7.6: Multi-dimensional filtering combinations
         DB::statement('
-            CREATE INDEX products_search_filters_idx
+            CREATE INDEX IF NOT EXISTS products_category_brand_status_idx
+            ON products (category_id, brand_id, status) WHERE status = \'active\'
+        ');
+
+        // 7.7: Price range with category filtering
+        DB::statement('
+            CREATE INDEX IF NOT EXISTS products_active_price_category_idx
+            ON products (price, category_id) WHERE status = \'active\'
+        ');
+
+        // 7.8: Complex search + filter scenarios
+        DB::statement('
+            CREATE INDEX IF NOT EXISTS products_search_filters_idx
             ON products (category_id, price, brand_id, stock_quantity)
             WHERE status = \'active\'
         ');
     }
 
     /**
-     * Create JSONB indexes for attributes and structured data queries
+     * Step 8: JSONB indexes for attributes and structured data queries
      */
     private function createJsonbIndexes(): void
     {
-        // GIN index for JSONB attributes column
-        // Supports: @>, ?, ?&, ?| operators for JSON queries
-        // Used for: filtering by product specifications and attributes
+        echo "Creating JSONB indexes...\n";
+
+        // 8.1: GIN index for JSONB attributes column
         DB::statement('
-            CREATE INDEX products_attributes_gin_idx
+            CREATE INDEX IF NOT EXISTS products_attributes_gin_idx
             ON products USING GIN (attributes)
             WHERE status = \'active\' AND attributes IS NOT NULL
         ');
 
-        // GIN index for JSONB images column (if used for image metadata searches)
-        // Supports: searching image metadata, alt text, etc.
+        // 8.2: GIN index for JSONB images column
         DB::statement('
-            CREATE INDEX products_images_gin_idx
+            CREATE INDEX IF NOT EXISTS products_images_gin_idx
             ON products USING GIN (images)
             WHERE status = \'active\' AND images IS NOT NULL
         ');
+
+        echo "All indexes created successfully!\n";
     }
 
     /**
-     * Update existing product records to populate search vectors
-     */
-    private function updateExistingRecords(): void
-    {
-        // Trigger the search vector update for all existing products
-        // This ensures that products created before this migration have proper search vectors
-        DB::statement("UPDATE products SET updated_at = updated_at WHERE id IS NOT NULL;");
-    }
-
-    /**
-     * Reverse the migrations by dropping all created database objects
+     * Reverse the migrations.
      */
     public function down(): void
     {
-        // Drop all indexes (order matters for dependencies)
-        $this->dropAllIndexes();
+        echo "Dropping all product search indexes...\n";
 
-        // Drop trigger and functions
-        $this->dropTriggerAndFunctions();
-    }
-
-    /**
-     * Drop all created indexes
-     */
-    private function dropAllIndexes(): void
-    {
+        // Drop indexes in reverse order
         $indexes = [
-            // Full-text search indexes
-            'products_search_vector_gin_idx',
-            'products_active_search_vector_idx',
-            'products_name_text_gin_idx',
-            'products_sku_text_gin_idx',
-
-            // Fuzzy matching indexes
-            'products_name_trgm_gin_idx',
-            'products_sku_trgm_gin_idx',
-            'products_description_trgm_gin_idx',
-            'products_category_name_trgm_idx',
-            'products_brand_name_trgm_idx',
-
-            // Performance indexes
-            'products_status_idx',
-            'products_active_price_idx',
-            'products_active_stock_idx',
-            'products_active_name_sort_idx',
-            'products_active_created_sort_idx',
+            // JSONB indexes
+            'products_images_gin_idx',
+            'products_attributes_gin_idx',
 
             // Composite indexes
-            'products_active_category_name_idx',
-            'products_active_category_price_idx',
-            'products_active_brand_name_idx',
-            'products_active_brand_price_idx',
-            'products_category_brand_status_idx',
-            'products_active_price_category_idx',
             'products_search_filters_idx',
+            'products_active_price_category_idx',
+            'products_category_brand_status_idx',
+            'products_status_manufacturer_name_idx',
+            'products_active_brand_price_idx',
+            'products_active_brand_name_idx',
+            'products_status_brand_name_idx',
+            'products_active_category_price_idx',
+            'products_active_category_name_idx',
+            'products_status_category_name_idx',
 
-            // JSONB indexes
-            'products_attributes_gin_idx',
-            'products_images_gin_idx'
+            // Sorting and filtering indexes
+            'products_status_manufacturer_idx',
+            'products_status_brand_idx',
+            'products_status_category_idx',
+            'products_active_name_idx',
+
+            // Fuzzy matching indexes
+            'products_active_sku_trgm_idx',
+            'products_active_name_trgm_idx',
+            'products_name_trgm_gin_idx',
+
+            // Full-text search indexes
+            'products_sku_text_gin_idx',
+            'products_name_text_gin_idx',
+            'products_active_search_vector_idx',
+            'products_search_vector_gin_idx',
+
+            // Core performance indexes
+            'products_status_created_at_idx',
+            'products_active_price_idx',
+            'products_status_name_idx',
+            'products_status_idx',
         ];
 
         foreach ($indexes as $index) {
-            DB::statement("DROP INDEX CONCURRENTLY IF EXISTS {$index}");
+            DB::statement("DROP INDEX IF EXISTS {$index}");
         }
-    }
 
-    /**
-     * Drop trigger and all custom functions
-     */
-    private function dropTriggerAndFunctions(): void
-    {
-        // Drop trigger first
-        DB::statement("DROP TRIGGER IF EXISTS products_search_vector_trigger ON products");
+        // Drop trigger and function
+        DB::statement('DROP TRIGGER IF EXISTS products_search_vector_trigger ON products');
+        DB::statement('DROP FUNCTION IF EXISTS update_product_search_vector()');
 
-        // Drop all custom functions
-        DB::statement("DROP FUNCTION IF EXISTS update_product_search_vector()");
-        DB::statement("DROP FUNCTION IF EXISTS normalize_electrical_specs(text)");
-        DB::statement("DROP FUNCTION IF EXISTS semantic_search_match(text, text, text, text, tsvector)");
-        DB::statement("DROP FUNCTION IF EXISTS semantic_search_score(text, text, text, text, text, text, tsvector)");
-        DB::statement("DROP FUNCTION IF EXISTS parse_electrical_specs(text)");
-        DB::statement("DROP FUNCTION IF EXISTS get_search_suggestions(text, integer)");
+        echo "All indexes dropped successfully!\n";
     }
 };
