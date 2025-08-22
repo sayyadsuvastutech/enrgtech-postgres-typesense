@@ -36,11 +36,6 @@ return new class extends Migration {
                 ON products (status, manufacturer_id, name) WHERE status = \'active\';
             ');
 
-                        DB::statement('
-                -- Partial index for active products to accelerate search queries
-                CREATE INDEX IF NOT EXISTS products_active_search_vector_idx
-                ON products USING GIN (search_vector) WHERE status = \'active\';
-            ');
 
                         DB::statement('
                 -- If you frequently sort search results by name after ranking

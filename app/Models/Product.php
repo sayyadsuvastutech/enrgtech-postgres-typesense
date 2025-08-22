@@ -100,17 +100,106 @@ class Product extends Model
         );
     }
 
-    public function scopeFuzzySearch(Builder $query, string $searchTerm): Builder
-    {
-        return $query->whereRaw(
-            "name % ? OR sku % ?",
-            [$searchTerm, $searchTerm]
-        );
-    }
-
 
     /**
-     * Scope for full-text search using the search_vector
+     * Semantic search with multi-factor scoring and Google-like operators
+     */
+    public function scopeSemanticSearch(Builder $query, string $searchTerm): Builder
+    {
+        $normalizedTerm = trim($searchTerm);
+
+        if (empty($normalizedTerm)) {
+            return $query->where('id', '<', 0); // No results for empty search
+        }
+
+        return $query->selectRaw("
+            products.*,
+            semantic_search_score(?, name, sku, description, category_name, brand_name, search_vector) as total_score
+        ", [$normalizedTerm])
+        ->whereRaw("semantic_search_match(?, name, sku, description, search_vector)", [$normalizedTerm])
+        ->orderBy('total_score', 'desc');
+    }
+
+    /**
+     * Full-text search using websearch_to_tsquery for Google-like operators
+     */
+    public function scopeWebSearch(Builder $query, string $searchTerm): Builder
+    {
+        return $query->selectRaw(
+            "*, ts_rank_cd(search_vector, websearch_to_tsquery('english', ?), 32) as search_rank",
+            [$searchTerm]
+        )->whereRaw(
+            "search_vector @@ websearch_to_tsquery('english', ?)",
+            [$searchTerm]
+        )->orderBy('search_rank', 'desc');
+    }
+
+    /**
+     * Phrase search for exact matches
+     */
+    public function scopePhraseSearch(Builder $query, string $phrase): Builder
+    {
+        return $query->selectRaw(
+            "*, ts_rank_cd(search_vector, phraseto_tsquery('english', ?), 32) as search_rank",
+            [$phrase]
+        )->whereRaw(
+            "search_vector @@ phraseto_tsquery('english', ?)",
+            [$phrase]
+        )->orderBy('search_rank', 'desc');
+    }
+
+    /**
+     * Fuzzy search using trigram similarity
+     */
+    public function scopeFuzzySearch(Builder $query, string $searchTerm, float $threshold = 0.3): Builder
+    {
+        return $query->selectRaw("
+            *,
+            GREATEST(
+                similarity(name, ?),
+                similarity(sku, ?),
+                COALESCE(similarity(description, ?), 0)
+            ) as fuzzy_score
+        ", [$searchTerm, $searchTerm, $searchTerm])
+        ->whereRaw("
+            similarity(name, ?) > ? OR
+            similarity(sku, ?) > ? OR
+            similarity(description, ?) > ?
+        ", [$searchTerm, $threshold, $searchTerm, $threshold, $searchTerm, $threshold])
+        ->orderBy('fuzzy_score', 'desc');
+    }
+
+    /**
+     * Levenshtein distance search for edit distance matching
+     */
+    public function scopeLevenshteinSearch(Builder $query, string $searchTerm, int $maxDistance = 3): Builder
+    {
+        return $query->selectRaw("
+            *,
+            LEAST(
+                levenshtein(name, ?),
+                levenshtein(sku, ?),
+                COALESCE(levenshtein(description, ?), 999)
+            ) as edit_distance
+        ", [$searchTerm, $searchTerm, $searchTerm])
+        ->whereRaw("
+            levenshtein(name, ?) <= ? OR
+            levenshtein(sku, ?) <= ? OR
+            levenshtein(description, ?) <= ?
+        ", [$searchTerm, $maxDistance, $searchTerm, $maxDistance, $searchTerm, $maxDistance])
+        ->orderBy('edit_distance', 'asc');
+    }
+
+    /**
+     * Combined search with multiple strategies
+     */
+    public function scopeSearchWithRank($query, $searchTerm)
+    {
+        return $this->scopeSemanticSearch($query, $searchTerm);
+    }
+
+    /**
+     * Legacy support - simple full-text search
      */
     public function scopeSearch($query, $searchTerm)
     {
@@ -121,20 +210,6 @@ class Product extends Model
             "ts_rank(search_vector, plainto_tsquery('english', ?)) DESC",
             [$searchTerm]
         );
-    }
-
-    /**
-     * Scope for advanced search with ranking
-     */
-    public function scopeSearchWithRank($query, $searchTerm)
-    {
-        return $query->selectRaw(
-            "*, ts_rank(search_vector, plainto_tsquery('english', ?)) as search_rank",
-            [$searchTerm]
-        )->whereRaw(
-            "search_vector @@ plainto_tsquery('english', ?)",
-            [$searchTerm]
-        )->orderBy('search_rank', 'desc');
     }
 
     public function scopeWithJsonAttribute(Builder $query, string $key, $value): Builder

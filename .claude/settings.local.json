@@ -6,7 +6,8 @@
       "Bash(php artisan make:model:*)",
       "Bash(php artisan make:factory:*)",
       "Bash(php artisan migrate:*)",
-      "Bash(php artisan:*)"
+      "Bash(php artisan:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []
