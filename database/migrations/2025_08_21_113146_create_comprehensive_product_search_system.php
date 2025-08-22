@@ -74,19 +74,60 @@ return new class extends Migration
     {
         echo "Creating search vector trigger...\n";
 
-        // Create the trigger function
+//        // Create the trigger function
+//        DB::statement("
+//            CREATE OR REPLACE FUNCTION update_product_search_vector()
+//            RETURNS TRIGGER AS $$
+//            BEGIN
+//                NEW.search_vector = to_tsvector('english',
+//                    coalesce(NEW.name, '') || ' ' ||
+//                    coalesce(NEW.description, '') || ' ' ||
+//                    coalesce(NEW.sku, '') || ' ' ||
+//                    coalesce(NEW.category_name, '') || ' ' ||
+//                    coalesce(NEW.brand_name, '') || ' ' ||
+//                    coalesce(NEW.manufacturer_name, '')
+//                );
+//                RETURN NEW;
+//            END;
+//            $$ LANGUAGE plpgsql;
+//        ");
+
         DB::statement("
             CREATE OR REPLACE FUNCTION update_product_search_vector()
             RETURNS TRIGGER AS $$
+            DECLARE
+                attributes_text TEXT := '';
             BEGIN
+                -- Extract attributes keys and values from JSONB (only if it's an object, not array or null)
+                IF NEW.attributes IS NOT NULL AND jsonb_typeof(NEW.attributes) = 'object' THEN
+                    SELECT string_agg(
+                        CASE
+                            WHEN jsonb_typeof(value) = 'string' THEN
+                                key || ' ' || REPLACE(value::text, '\"', '')
+                            WHEN jsonb_typeof(value) = 'number' THEN
+                                key || ' ' || value::text
+                            WHEN jsonb_typeof(value) = 'boolean' THEN
+                                key || ' ' || value::text
+                            ELSE
+                                key
+                        END,
+                        ' '
+                    )
+                    INTO attributes_text
+                    FROM jsonb_each(NEW.attributes);
+                END IF;
+
+                -- Create the search vector including all searchable fields
                 NEW.search_vector = to_tsvector('english',
                     coalesce(NEW.name, '') || ' ' ||
                     coalesce(NEW.description, '') || ' ' ||
                     coalesce(NEW.sku, '') || ' ' ||
                     coalesce(NEW.category_name, '') || ' ' ||
                     coalesce(NEW.brand_name, '') || ' ' ||
-                    coalesce(NEW.manufacturer_name, '')
+                    coalesce(NEW.manufacturer_name, '') || ' ' ||
+                    coalesce(attributes_text, '')
                 );
+
                 RETURN NEW;
             END;
             $$ LANGUAGE plpgsql;

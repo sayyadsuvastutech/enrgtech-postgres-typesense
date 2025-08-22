@@ -67,7 +67,7 @@ class Product extends Model
         return $query->where('stock_quantity', '>', 0);
     }
 
-    public function scopePriceRange(Builder $query, float $min = null, float $max = null): Builder
+    public function scopePriceRange(Builder $query, ?float $min = null, ?float $max = null): Builder
     {
         if ($min !== null) {
             $query->where('price', '>=', $min);
