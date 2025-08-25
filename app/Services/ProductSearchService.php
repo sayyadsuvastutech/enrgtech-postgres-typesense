@@ -37,14 +37,7 @@ class ProductSearchService
             ])
             ->where('status', 'active');
 
-        // Apply advanced semantic search with multi-factor scoring
-        if (!empty($params['search'])) {
-            $searchTerm = trim($params['search']);
 
-            if (strlen($searchTerm) >= 2) {
-                $query = $this->applySemanticSearch($query, $searchTerm);
-            }
-        }
 
         // Apply category filter
         if (!empty($params['categories']) && is_array($params['categories'])) {
@@ -72,6 +65,15 @@ class ProductSearchService
         // Apply stock filter
         if (!empty($params['in_stock'])) {
             $query->where('stock_quantity', '>', 0);
+        }
+
+        // Apply advanced semantic search with multi-factor scoring
+        if (!empty($params['search'])) {
+            $searchTerm = trim($params['search']);
+
+            if (strlen($searchTerm) >= 2) {
+                $query = $this->applySemanticSearch($query, $searchTerm);
+            }
         }
 
         // Apply sorting

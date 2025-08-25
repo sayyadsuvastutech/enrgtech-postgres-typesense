@@ -93,7 +93,6 @@ class Product extends Model
         return $query->where('manufacturer_id', $manufacturerId);
     }
 
-
     /**
      * Full-text search using websearch_to_tsquery for Google-like operators
      */
@@ -122,54 +121,46 @@ class Product extends Model
         )->orderBy('search_rank', 'desc');
     }
 
-    
-
-    public function scopeSearch($query, string $term)
+    /**
+     * Optimized semantic search with typo tolerance using CTE, FTS, and trigram
+     */
+    public function scopeSearch(Builder $query, string $term): Builder
     {
-        // Convert to tsquery with prefix search
         $tsquery = implode(' & ', array_map(fn($t) => $t . ':*', explode(' ', $term)));
+        $exactMatch = "%$term%";
 
-        return $query->selectRaw('products.*,
-        ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) AS fts_score,
-        similarity(name, ?) AS trigram_score,
-
-        -- Word-level Levenshtein: find the best matching word in the title
-        (
-            SELECT MAX(1.0 / (1 + levenshtein(lower(word), lower(?))))
-            FROM unnest(string_to_array(regexp_replace(lower(name), \'[^a-z0-9 ]\', \' \', \'g\'), \' \')) AS word
-            WHERE length(word) > 1
-        ) AS word_levenshtein_score,
-
-        (
-          0.5 * ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) +
-          0.3 * similarity(name, ?) +
-          0.2 * COALESCE((
-              SELECT MAX(1.0 / (1 + levenshtein(lower(word), lower(?))))
-              FROM unnest(string_to_array(regexp_replace(lower(name), \'[^a-z0-9 ]\', \' \', \'g\'), \' \')) AS word
-              WHERE length(word) > 1
-          ), 0)
-        ) AS total_score',
-            [$tsquery, $term, $term, $tsquery, $term, $term]
-        )
-            ->where('status', 'active')
-            ->where(function ($q) use ($tsquery, $term) {
-                $q->whereRaw('ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) > 0', [$tsquery])
-                    ->orWhereRaw('similarity(name, ?) > 0.1', [$term])
-
-//                -- Word-level Levenshtein filter: check if ANY word is close enough
-                    ->orWhereRaw('
-              EXISTS (
-                  SELECT 1
-                  FROM unnest(string_to_array(regexp_replace(lower(name), \'[^a-z0-9 ]\', \' \', \'g\'), \' \')) AS word
-                  WHERE length(word) > 1 AND levenshtein(lower(word), lower(?)) <= 2
-              )
-          ', [$term])
-
-                    ->orWhereRaw('name ILIKE ?', ["%$term%"]);
-    })
+        return $query->fromSub(function ($subQuery) use ($tsquery, $term, $exactMatch) {
+            // Stage 1: Pre-filter with indexable conditions (FTS, trigram similarity, ILIKE)
+            $subQuery->select('products.*')
+                ->from('products')
+                ->where('status', 'active')
+                ->where(function ($q) use ($tsquery, $term, $exactMatch) {
+                    $q->whereRaw('search_vector @@ to_tsquery(\'english\', ?)', [$tsquery])
+                        ->orWhereRaw('name % ?', [$term])  // Trigram similarity for typos (threshold 0.3)
+                        ->orWhereRaw('name ILIKE ?', [$exactMatch]);
+                })
+                ->orderByRaw('
+                    CASE WHEN name ILIKE ? THEN 1 ELSE 2 END,
+                    ts_rank_cd(search_vector, to_tsquery(\'english\', ?), 32) DESC
+                ', [$exactMatch, $tsquery])
+                ->limit(2000);  // Limit candidates for performance
+        }, 'candidates')
+            ->selectRaw('
+            candidates.*,
+            ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) AS fts_score,
+            word_similarity(?, name) AS trigram_score,
+            (
+                0.5 * ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) +
+                0.3 * word_similarity(?, name) +
+                0.2 * COALESCE((
+                    SELECT MAX(1.0 / (1 + levenshtein(lower(word), lower(?))))
+                    FROM unnest(string_to_array(regexp_replace(lower(name), \'[^a-z0-9 ]\', \' \', \'g\'), \' \')) AS word
+                    WHERE length(word) > 1
+                ), 0)
+            ) AS total_score
+        ', [$tsquery, $term, $tsquery, $term, $term])
             ->orderByDesc('total_score');
     }
-
 
     public function scopeWithJsonAttribute(Builder $query, string $key, $value): Builder
     {
@@ -180,7 +171,6 @@ class Product extends Model
     {
         return $query->orderBy('created_at', 'desc')->limit($limit);
     }
-
 
     public function getMainImageAttribute(): ?string
     {

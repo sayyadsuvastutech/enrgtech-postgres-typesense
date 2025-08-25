@@ -75,7 +75,7 @@ class extends Component {
         ];
     }
 
-    public function updatedSearch(): void
+    public function performSearch(): void
     {
         $this->resetPage();
     }
@@ -158,14 +158,24 @@ class extends Component {
                                       d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                             </svg>
                         </div>
-                        <input type="text"
-                               wire:model.live.debounce.300ms="search"
-                               placeholder="Search products, SKUs, models..."
-                               class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg text-lg text-gray-900 placeholder-gray-500 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <div class="flex">
+                            <input type="text"
+                                   wire:model="search"
+                                   wire:keydown.enter="performSearch"
+                                   placeholder="Search products, SKUs, models..."
+                                   class="flex-1 pl-10 pr-3 py-3 border border-gray-300 rounded-l-lg text-lg text-gray-900 placeholder-gray-500 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:z-10">
+                            <button wire:click="performSearch"
+                                    type="button"
+                                    class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-r-lg border border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 transition-colors duration-200">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                            </button>
+                        </div>
 
                         @if($search)
                             <button wire:click="$set('search', '')"
-                                    class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer text-gray-400 hover:text-gray-600 transition-colors">
+                                    class="absolute right-20 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
                                 </svg>
