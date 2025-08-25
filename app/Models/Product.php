@@ -122,33 +122,7 @@ class Product extends Model
         )->orderBy('search_rank', 'desc');
     }
 
-
-    public function scopeSearch2($query, string $term)
-    {
-        // Convert to tsquery with prefix search
-        $tsquery = implode(' & ', array_map(fn($t) => $t . ':*', explode(' ', $term)));
-
-        return $query->selectRaw('products.*,
-            ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) AS fts_score,
-            similarity(name, ?) AS trigram_score,
-            1.0 / (1 + levenshtein(lower(name), lower(?))) AS levenshtein_score,
-            (
-              0.6 * ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) +
-              0.3 * similarity(name, ?) +
-              0.1 * (1.0 / (1 + levenshtein(lower(name), lower(?))))
-            ) AS total_score',
-            [$tsquery, $term, $term, $tsquery, $term, $term]
-        )
-            ->where('status', 'active')
-            ->where(function ($q) use ($tsquery, $term) {
-                $q->whereRaw('ts_rank_cd(search_vector, to_tsquery(\'english\', ?)) > 0', [$tsquery])
-                    ->orWhereRaw('similarity(name, ?) > 0.1', [$term]) // relaxed threshold
-                    ->orWhereRaw('levenshtein(lower(name), lower(?)) <= 3', [$term])
-                    ->orWhereRaw('name ILIKE ?', ["%$term%"]); // extra safety net
-            })
-            ->orderByDesc('total_score');
-    }
-
+    
 
     public function scopeSearch($query, string $term)
     {
@@ -195,53 +169,6 @@ class Product extends Model
     })
             ->orderByDesc('total_score');
     }
-
-    public function scopeSearchnew($query, string $term, int $limit = 50)
-    {
-        // Sanitize and prepare the search term
-        $term = trim($term);
-        if (empty($term)) {
-            return $query->where('status', 'active')->orderBy('name')->limit($limit);
-        }
-
-        // Convert to tsquery with prefix search (use 'simple' dictionary for misspellings)
-        $tsquery = implode(' & ', array_map(fn($t) => $t . ':*', array_filter(explode(' ', $term))));
-
-        // Compute Levenshtein score once
-        $levenshteinSubquery = "
-        COALESCE((
-            SELECT MAX(1.0 / (1 + levenshtein(lower(word), lower(?))))
-            FROM unnest(string_to_array(regexp_replace(lower(name), '[^a-z0-9 ]', ' ', 'g'), ' ')) AS word
-            WHERE length(word) > 2
-        ), 0)";
-
-        return $query->selectRaw("
-        products.*,
-        ts_rank_cd(search_vector, to_tsquery('simple', ?)) AS fts_score,
-        similarity(name, ?) AS trigram_score,
-        {$levenshteinSubquery} AS word_levenshtein_score,
-        (
-            0.4 * ts_rank_cd(search_vector, to_tsquery('simple', ?)) +
-            0.3 * similarity(name, ?) +
-            0.3 * {$levenshteinSubquery}
-        ) AS total_score",
-            [$tsquery, $term, $term, $tsquery, $term, $term]
-        )
-            ->where('status', 'active')
-            ->where(function ($q) use ($tsquery, $term) {
-                $q->whereRaw("ts_rank_cd(search_vector, to_tsquery('simple', ?)) > 0", [$tsquery])
-                    ->orWhereRaw("similarity(name, ?) > 0.2", [$term])
-                    ->orWhereRaw("
-                    EXISTS (
-                        SELECT 1
-                        FROM unnest(string_to_array(regexp_replace(lower(name), '[^a-z0-9 ]', ' ', 'g'), ' ')) AS word
-                        WHERE length(word) > 2 AND levenshtein(lower(word), lower(?)) <= 2
-                    )", [$term]);
-            })
-            ->orderByDesc('total_score')
-            ->limit($limit);
-    }
-
 
 
     public function scopeWithJsonAttribute(Builder $query, string $key, $value): Builder
