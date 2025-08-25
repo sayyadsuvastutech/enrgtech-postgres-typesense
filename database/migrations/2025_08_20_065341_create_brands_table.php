@@ -30,6 +30,7 @@ return new class extends Migration
             $table->text('popular_items')->nullable();
             $table->text('new_items')->nullable();
             $table->bigInteger('domain_id')->nullable();
+            $table->foreignId('status_id')->default(1)->constrained('statuses')->onDelete('restrict');
             $table->bigInteger('created_by')->nullable();
             $table->bigInteger('updated_by')->nullable();
             $table->timestamps();
@@ -38,6 +39,7 @@ return new class extends Migration
             $table->index('name');
             $table->index('manufacturer_id');
             $table->index('domain_id');
+            $table->index('status_id');
         });
     }
 

@@ -42,7 +42,7 @@ return new class extends Migration
             $table->integer('total_reviews')->default(0);
             $table->decimal('average_rating', 3, 2)->nullable();
             $table->string('video_url')->nullable();
-            $table->bigInteger('status_id')->nullable();
+            $table->foreignId('status_id')->default(1)->constrained('statuses')->onDelete('restrict');
             $table->integer('session_insert_id')->nullable();
             $table->integer('session_update_id')->nullable();
             $table->boolean('is_updated')->default(false);

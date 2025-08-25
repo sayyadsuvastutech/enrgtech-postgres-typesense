@@ -179,26 +179,27 @@ return new class extends Migration
 
         // 3.1: Core status filter index - used in virtually all product queries
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_status_idx
-            ON products (status)
+            CREATE INDEX IF NOT EXISTS products_status_id_idx
+            ON products (status_id)
         ');
 
         // 3.2: Combined status + name for most common sorting pattern
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_status_name_idx
-            ON products (status, name) WHERE status = \'active\'
+            ON products (status_id, name) WHERE status_id = 1
         ');
 
-        // 3.3: Price filtering for e-commerce price range queries
-        DB::statement('
-            CREATE INDEX IF NOT EXISTS products_active_price_idx
-            ON products (price) WHERE status = \'active\'
-        ');
+        // 3.3: Price filtering is now handled in separate product_prices table
+        // This index is commented out as prices are normalized
+        // DB::statement('
+        //     CREATE INDEX IF NOT EXISTS products_active_price_idx
+        //     ON products (price) WHERE status_id = 1
+        // ');
 
         // 3.4: Created date sorting for "newest products"
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_status_created_at_idx
-            ON products (status, created_at DESC) WHERE status = \'active\'
+            ON products (status_id, created_at DESC) WHERE status_id = 1
         ');
     }
 
@@ -219,20 +220,20 @@ return new class extends Migration
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_active_search_vector_idx
             ON products USING GIN (search_vector)
-            WHERE status = \'active\'
+            WHERE status_id = 1
         ');
 
         // 4.3: Specialized text search indexes on individual fields
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_name_text_gin_idx
             ON products USING GIN (to_tsvector(\'english\', name))
-            WHERE status = \'active\'
+            WHERE status_id = 1
         ');
 
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_product_number_text_gin_idx
             ON products USING GIN (to_tsvector(\'english\', product_number))
-            WHERE status = \'active\'
+            WHERE status_id = 1
         ');
     }
 
@@ -247,19 +248,19 @@ return new class extends Migration
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_name_trgm_gin_idx
             ON products USING GIN (name gin_trgm_ops)
-            WHERE status = \'active\'
+            WHERE status_id = 1
         ');
 
         // 5.2: Active-only trigram search for names (duplicate prevention)
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_active_name_trgm_idx
-            ON products USING GIN (name gin_trgm_ops) WHERE status = \'active\'
+            ON products USING GIN (name gin_trgm_ops) WHERE status_id = 1
         ');
 
         // 5.3: Trigram index for product_number fuzzy matching
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_active_product_number_trgm_idx
-            ON products USING GIN (product_number gin_trgm_ops) WHERE status = \'active\'
+            ON products USING GIN (product_number gin_trgm_ops) WHERE status_id = 1
         ');
     }
 
@@ -273,25 +274,22 @@ return new class extends Migration
         // 6.1: Simple name sorting for active products
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_active_name_idx
-            ON products (name) WHERE status = \'active\'
+            ON products (name) WHERE status_id = 1
         ');
 
         // 6.2: Category filtering (EXISTS queries)
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_status_category_idx
-            ON products (status, category_id) WHERE status = \'active\'
+            ON products (status_id, category_id) WHERE status_id = 1
         ');
 
-        // 6.3: Brand filtering (EXISTS queries)
-        DB::statement('
-            CREATE INDEX IF NOT EXISTS products_status_brand_idx
-            ON products (status, brand_id) WHERE status = \'active\'
-        ');
+        // 6.3: Brand filtering is now handled via manufacturer_id (brands are tied to manufacturers)
+        // Removed: brand_id doesn't exist in products table
 
         // 6.4: Manufacturer filtering (EXISTS queries)
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_status_manufacturer_idx
-            ON products (status, manufacturer_id) WHERE status = \'active\'
+            ON products (status_id, manufacturer_id) WHERE status_id = 1
         ');
     }
 
@@ -305,60 +303,40 @@ return new class extends Migration
         // 7.1: Category-based filtering with name sorting
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_status_category_name_idx
-            ON products (status, category_id, name) WHERE status = \'active\'
+            ON products (status_id, category_id, name) WHERE status_id = 1
         ');
 
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_active_category_name_idx
-            ON products (category_id, name) WHERE status = \'active\'
+            ON products (category_id, name) WHERE status_id = 1
         ');
 
-        // 7.2: Category-based filtering with price sorting
-        DB::statement('
-            CREATE INDEX IF NOT EXISTS products_active_category_price_idx
-            ON products (category_id, price) WHERE status = \'active\'
-        ');
+        // 7.2: Price filtering is now handled in separate product_prices table
+        // Removed: price column doesn't exist in products table
 
-        // 7.3: Brand-based filtering with name sorting
-        DB::statement('
-            CREATE INDEX IF NOT EXISTS products_status_brand_name_idx
-            ON products (status, brand_id, name) WHERE status = \'active\'
-        ');
-
-        DB::statement('
-            CREATE INDEX IF NOT EXISTS products_active_brand_name_idx
-            ON products (brand_id, name) WHERE status = \'active\'
-        ');
-
-        // 7.4: Brand-based filtering with price sorting
-        DB::statement('
-            CREATE INDEX IF NOT EXISTS products_active_brand_price_idx
-            ON products (brand_id, price) WHERE status = \'active\'
-        ');
+        // 7.3: Brand-based filtering is now handled via manufacturer relationships
+        // Removed: brand_id doesn't exist in products table
 
         // 7.5: Manufacturer-based filtering with name sorting
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_status_manufacturer_name_idx
-            ON products (status, manufacturer_id, name) WHERE status = \'active\'
+            ON products (status_id, manufacturer_id, name) WHERE status_id = 1
         ');
 
-        // 7.6: Multi-dimensional filtering combinations
+        // 7.6: Multi-dimensional filtering combinations (using manufacturer instead of brand)
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_category_brand_status_idx
-            ON products (category_id, brand_id, status) WHERE status = \'active\'
+            CREATE INDEX IF NOT EXISTS products_category_manufacturer_status_idx
+            ON products (category_id, manufacturer_id, status_id) WHERE status_id = 1
         ');
 
-        // 7.7: Price range with category filtering
-        DB::statement('
-            CREATE INDEX IF NOT EXISTS products_active_price_category_idx
-            ON products (price, category_id) WHERE status = \'active\'
-        ');
+        // 7.7: Price and stock are now handled in separate tables
+        // Removed: price and stock_quantity columns don't exist in products table
 
-        // 7.8: Complex search + filter scenarios
+        // 7.8: Complex search + filter scenarios (simplified for normalized schema)
         DB::statement('
             CREATE INDEX IF NOT EXISTS products_search_filters_idx
-            ON products (category_id, price, brand_id, stock_quantity)
-            WHERE status = \'active\'
+            ON products (category_id, manufacturer_id, status_id)
+            WHERE status_id = 1
         ');
     }
 
@@ -369,20 +347,12 @@ return new class extends Migration
     {
         echo "Creating JSONB indexes...\n";
 
-        // 8.1: GIN index for JSONB attributes column
-        DB::statement('
-            CREATE INDEX IF NOT EXISTS products_attributes_gin_idx
-            ON products USING GIN (attributes)
-            WHERE status = \'active\' AND attributes IS NOT NULL
-        ');
+        // Note: JSONB columns (attributes, images) are now handled in separate tables
+        // product_attributes table has attributes_data JSONB column
+        // product_images table handles image data
+        // These indexes are no longer needed on the products table
 
-        // 8.2: GIN index for JSONB images column
-        DB::statement('
-            CREATE INDEX IF NOT EXISTS products_images_gin_idx
-            ON products USING GIN (images)
-            WHERE status = \'active\' AND images IS NOT NULL
-        ');
-
+        echo "JSONB indexes skipped - data normalized to separate tables.\n";
         echo "All indexes created successfully!\n";
     }
 
@@ -395,25 +365,19 @@ return new class extends Migration
 
         // Drop indexes in reverse order
         $indexes = [
-            // JSONB indexes
-            'products_images_gin_idx',
-            'products_attributes_gin_idx',
+            // JSONB indexes - removed as columns no longer exist
+            // 'products_images_gin_idx',
+            // 'products_attributes_gin_idx',
 
             // Composite indexes
             'products_search_filters_idx',
-            'products_active_price_category_idx',
-            'products_category_brand_status_idx',
+            'products_category_manufacturer_status_idx',
             'products_status_manufacturer_name_idx',
-            'products_active_brand_price_idx',
-            'products_active_brand_name_idx',
-            'products_status_brand_name_idx',
-            'products_active_category_price_idx',
             'products_active_category_name_idx',
             'products_status_category_name_idx',
 
             // Sorting and filtering indexes
             'products_status_manufacturer_idx',
-            'products_status_brand_idx',
             'products_status_category_idx',
             'products_active_name_idx',
 

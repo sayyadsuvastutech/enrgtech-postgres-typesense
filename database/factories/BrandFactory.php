@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Manufacturer;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -32,10 +33,26 @@ class BrandFactory extends Factory
         $name = $this->faker->randomElement(self::$toolBrands);
 
         return [
+            'manufacturer_id' => Manufacturer::factory(),
             'name' => $name,
             'slug' => $this->generateUniqueSlug($name),
+            'logo' => $this->faker->optional()->imageUrl(200, 100, 'business'),
+            'banner' => $this->faker->optional()->imageUrl(800, 200, 'business'),
             'description' => $this->generateBrandDescription($name),
-            'logo_url' => "https://picsum.photos/200/100?random=" . $this->faker->numberBetween(1, 1000),
+            'website' => $this->faker->optional()->url(),
+            'type' => $this->faker->optional()->randomElement(['Tools', 'Electronics', 'Safety', 'Industrial']),
+            'size' => $this->faker->optional()->randomElement(['Small', 'Medium', 'Large', 'Enterprise']),
+            'location' => $this->faker->optional()->city(),
+            'founded' => $this->faker->optional()->year(),
+            'specialties' => $this->faker->optional()->sentence(4),
+            'meta_title' => $this->faker->optional()->sentence(6),
+            'meta_description' => $this->faker->optional()->sentence(12),
+            'popular_items' => $this->faker->optional()->sentence(8),
+            'new_items' => $this->faker->optional()->sentence(8),
+            'domain_id' => $this->faker->optional()->numberBetween(1, 10),
+            'status_id' => $this->faker->randomElement([1, 1, 1, 2]), // 75% active, 25% inactive
+            'created_by' => $this->faker->optional()->numberBetween(1, 100),
+            'updated_by' => $this->faker->optional()->numberBetween(1, 100),
         ];
     }
 

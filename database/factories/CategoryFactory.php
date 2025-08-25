@@ -10,106 +10,87 @@ class CategoryFactory extends Factory
     public function definition(): array
     {
         $name = $this->faker->randomElement([
-            'Screwdrivers', 'Wrenches', 'Hammers', 'Pliers', 'Drill Bits',
-            'Drills', 'Circular Saws', 'Jigsaws', 'Sanders', 'Grinders',
-            'Fuses', 'Switches', 'Connectors', 'Outlets', 'Wire Nuts',
-            'Safety Gloves', 'Hard Hats', 'Safety Glasses', 'Knee Pads', 'Tool Belts'
+            'Electronics', 'Components', 'Semiconductors', 'Connectors', 'Sensors',
+            'Power Supplies', 'Cables & Wires', 'Circuit Protection', 'Displays', 'Motors',
+            'Industrial Controls', 'Test & Measurement', 'Tools & Accessories', 'Batteries'
         ]);
 
         return [
             'name' => $name,
             'slug' => $this->generateUniqueSlug($name),
             'description' => $this->faker->sentence(10),
-            'parent_id' => null,
+            'image' => $this->faker->optional()->imageUrl(300, 200, 'business'),
+            'parent_category' => null, // Will be set by factory states
+            'is_main' => false, // Will be set by factory states
+            'pushed' => $this->faker->boolean(70),
+            'meta_title' => $this->faker->optional()->sentence(6),
+            'meta_description' => $this->faker->optional()->sentence(12),
+            'status_id' => $this->faker->randomElement([1, 1, 1, 2]), // 75% active, 25% inactive
+            'products_count' => $this->faker->numberBetween(0, 1000),
+            'created_by' => $this->faker->optional()->numberBetween(1, 100),
+            'updated_by' => $this->faker->optional()->numberBetween(1, 100),
         ];
     }
 
-    public function rootCategory(): static
+    public function mainCategory(): static
     {
         return $this->state(function () {
             $name = $this->faker->randomElement([
-                'Hand Tools', 'Power Tools', 'Electrical Components', 'Safety Equipment'
+                'Electronics', 'Components', 'Semiconductors', 'Power Management', 
+                'Test Equipment', 'Industrial Controls', 'Sensors', 'Displays'
             ]);
             
             return [
                 'name' => $name,
                 'slug' => $this->generateUniqueSlug($name),
-                'description' => "Professional {$name} for construction and electrical work",
-                'parent_id' => null,
+                'description' => "Professional {$name} for industrial and commercial applications",
+                'is_main' => true,
+                'parent_category' => null,
+                'pushed' => true,
+                'products_count' => $this->faker->numberBetween(50, 500),
             ];
         });
     }
 
-    public function handTool(): static
+    public function subCategory(): static
     {
         return $this->state(function () {
             $name = $this->faker->randomElement([
-                'Flathead Screwdrivers', 'Phillips Screwdrivers', 'Robertson Screwdrivers',
-                'Combination Wrenches', 'Socket Wrenches', 'Adjustable Wrenches',
-                'Claw Hammers', 'Ball Peen Hammers', 'Sledge Hammers',
-                'Needle Nose Pliers', 'Wire Strippers', 'Diagonal Cutters'
+                'Resistors', 'Capacitors', 'Inductors', 'Diodes', 'Transistors',
+                'Integrated Circuits', 'Microcontrollers', 'Memory Devices',
+                'Power Modules', 'Voltage Regulators', 'Switches', 'Relays'
             ]);
 
             return [
                 'name' => $name,
                 'slug' => $this->generateUniqueSlug($name),
-                'description' => "High-quality {$name} for professional use",
+                'description' => "High-quality {$name} for electronic applications",
+                'is_main' => false,
+                'products_count' => $this->faker->numberBetween(10, 200),
             ];
         });
     }
 
-    public function powerTool(): static
+    public function withParent($parentId): static
     {
-        return $this->state(function () {
-            $name = $this->faker->randomElement([
-                'Cordless Drills', 'Impact Drivers', 'Hammer Drills',
-                'Circular Saws', 'Miter Saws', 'Table Saws',
-                'Random Orbit Sanders', 'Belt Sanders', 'Palm Sanders',
-                'Angle Grinders', 'Die Grinders', 'Bench Grinders'
-            ]);
-
-            return [
-                'name' => $name,
-                'slug' => $this->generateUniqueSlug($name),
-                'description' => "Professional {$name} for heavy-duty applications",
-            ];
-        });
+        return $this->state([
+            'parent_category' => $parentId,
+            'is_main' => false,
+        ]);
     }
 
-    public function electricalComponent(): static
+    public function pushed(): static
     {
-        return $this->state(function () {
-            $name = $this->faker->randomElement([
-                'Circuit Breaker Fuses', 'Cartridge Fuses', 'Blade Fuses',
-                'Toggle Switches', 'Rocker Switches', 'Push Button Switches',
-                'Wire Connectors', 'Terminal Blocks', 'Junction Boxes',
-                'GFCI Outlets', 'Standard Outlets', 'USB Outlets'
-            ]);
-
-            return [
-                'name' => $name,
-                'slug' => $this->generateUniqueSlug($name),
-                'description' => "Reliable {$name} for electrical installations",
-            ];
-        });
+        return $this->state([
+            'pushed' => true,
+        ]);
     }
 
-    public function safetyEquipment(): static
+    public function unpushed(): static
     {
-        return $this->state(function () {
-            $name = $this->faker->randomElement([
-                'Work Gloves', 'Cut Resistant Gloves', 'Electrical Gloves',
-                'Hard Hats', 'Bump Caps', 'Safety Helmets',
-                'Safety Glasses', 'Goggles', 'Face Shields',
-                'Knee Pads', 'Elbow Pads', 'Back Support Belts'
-            ]);
-
-            return [
-                'name' => $name,
-                'slug' => $this->generateUniqueSlug($name),
-                'description' => "Essential {$name} for workplace safety",
-            ];
-        });
+        return $this->state([
+            'pushed' => false,
+        ]);
     }
 
     private function generateUniqueSlug(string $name): string
@@ -120,10 +101,5 @@ class CategoryFactory extends Factory
         return $baseSlug . '-' . $timestamp . '-' . $random;
     }
 
-    public function withParent($parentId): static
-    {
-        return $this->state([
-            'parent_id' => $parentId,
-        ]);
-    }
+    // Hierarchy methods restored for recursive structure
 }

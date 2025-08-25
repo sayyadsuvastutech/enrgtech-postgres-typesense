@@ -39,14 +39,18 @@ class ManufacturerFactory extends Factory
             'name' => $name,
             'slug' => $this->generateUniqueSlug($name),
             'description' => $this->generateManufacturerDescription($name, $isReal),
-            'contact_info' => [
-                'website' => $this->generateWebsite($name),
-                'country' => $this->generateCountry($name, $isReal),
-                'founded_year' => $isReal 
-                    ? $this->faker->numberBetween(1885, 1995)
-                    : $this->faker->numberBetween(1950, 2010),
-                'headquarters' => $this->generateHeadquarters($isReal),
-            ],
+            'logo' => $this->faker->optional()->imageUrl(200, 100, 'business'),
+            'banner' => $this->faker->optional()->imageUrl(800, 200, 'business'),
+            'meta_title' => $this->faker->optional()->sentence(6),
+            'meta_description' => $this->faker->optional()->sentence(12),
+            'is_pushed' => $this->faker->boolean(60),
+            'website' => $this->generateWebsite($name),
+            'total_reviews' => $this->faker->numberBetween(0, 1000),
+            'products_count' => $this->faker->numberBetween(10, 500),
+            'average_rating' => $this->faker->optional()->randomFloat(1, 3.0, 5.0),
+            'status_id' => $this->faker->randomElement([1, 1, 1, 2]), // 75% active, 25% inactive
+            'created_by' => $this->faker->optional()->numberBetween(1, 100),
+            'updated_by' => $this->faker->optional()->numberBetween(1, 100),
         ];
     }
 
@@ -59,12 +63,8 @@ class ManufacturerFactory extends Factory
                 'name' => $name,
                 'slug' => $this->generateUniqueSlug($name),
                 'description' => $this->generateManufacturerDescription($name, true),
-                'contact_info' => [
-                    'website' => $this->generateWebsite($name),
-                    'country' => $this->generateCountry($name, true),
-                    'founded_year' => $this->faker->numberBetween(1885, 1995),
-                    'headquarters' => $this->generateHeadquarters(true),
-                ],
+                'website' => $this->generateWebsite($name),
+                'is_pushed' => true, // Real manufacturers are typically pushed
             ];
         });
     }
@@ -78,12 +78,8 @@ class ManufacturerFactory extends Factory
                 'name' => $name,
                 'slug' => $this->generateUniqueSlug($name),
                 'description' => $this->generateManufacturerDescription($name, false),
-                'contact_info' => [
-                    'website' => $this->generateWebsite($name),
-                    'country' => $this->generateCountry($name, false),
-                    'founded_year' => $this->faker->numberBetween(1950, 2010),
-                    'headquarters' => $this->generateHeadquarters(false),
-                ],
+                'website' => $this->generateWebsite($name),
+                'is_pushed' => $this->faker->boolean(30), // Fictional manufacturers less likely pushed
             ];
         });
     }

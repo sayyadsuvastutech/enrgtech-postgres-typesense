@@ -13,29 +13,39 @@ class ProductFactory extends Factory
     public function definition(): array
     {
         $name = $this->generateProductName();
-        $sku = $this->generateSKU();
+        $productNumber = $this->generateProductNumber();
+        $title = $this->generateProductTitle($name);
 
         $category = Category::factory()->create();
-        $brand = Brand::factory()->create();
         $manufacturer = Manufacturer::factory()->create();
 
         return [
             'name' => $name,
-            'slug' => Str::slug($name . '-' . $sku),
+            'title' => $title,
+            'code' => $this->faker->optional()->bothify('??###'),
+            'product_number' => $productNumber,
+            'manufacturer_product_number' => $this->faker->optional()->bothify('MPN-####'),
+            'manufacturer_product_slug' => $this->faker->optional()->slug(),
             'description' => $this->faker->paragraphs(3, true),
-            'sku' => $sku,
-            'price' => $this->faker->randomFloat(2, 5, 800),
-            'stock_quantity' => $this->faker->numberBetween(0, 500),
-            'status' => $this->faker->randomElement(['active', 'inactive', 'discontinued']),
             'category_id' => $category->id,
-            'brand_id' => $brand->id,
             'manufacturer_id' => $manufacturer->id,
+            'breadcrumb' => $this->generateBreadcrumb($category->name, $name),
+            'meta_title' => $this->faker->optional()->sentence(6),
+            'meta_description' => $this->faker->optional()->sentence(12),
+            'is_rohs_compliant' => $this->faker->boolean(70),
+            'is_verified' => $this->faker->boolean(85),
+            'is_pushed' => $this->faker->boolean(60),
+            'total_reviews' => $this->faker->numberBetween(0, 500),
+            'average_rating' => $this->faker->optional()->randomFloat(1, 1, 5),
+            'video_url' => $this->faker->optional()->url(),
+            'status_id' => $this->faker->randomElement([1, 1, 1, 1, 2]), // 80% active, 20% inactive
+            'session_insert_id' => $this->faker->optional()->randomNumber(5),
+            'session_update_id' => $this->faker->optional()->randomNumber(5),
+            'is_updated' => $this->faker->boolean(30),
+            'created_by' => $this->faker->optional()->numberBetween(1, 100),
+            'updated_by' => $this->faker->optional()->numberBetween(1, 100),
             'category_name' => $category->name,
-            'brand_name' => $brand->name,
             'manufacturer_name' => $manufacturer->name,
-            'images' => $this->generateImages(),
-            'thumbnails' => $this->generateThumbnails(),
-            'attributes' => [],
         ];
     }
 
@@ -57,7 +67,7 @@ class ProductFactory extends Factory
                 'name' => "{$brand} {$tool} - Model {$model}",
                 'description' => $this->generateHandToolDescription($tool),
                 'price' => $this->faker->randomFloat(2, 5, 200),
-                'attributes' => $this->generateHandToolAttributes($tool),
+                // attributes will be created separately in ProductAttribute factory
             ];
         });
     }
@@ -78,7 +88,7 @@ class ProductFactory extends Factory
                 'name' => "{$brand} {$tool} - Model {$model}",
                 'description' => $this->generatePowerToolDescription($tool),
                 'price' => $this->faker->randomFloat(2, 50, 800),
-                'attributes' => $this->generatePowerToolAttributes($tool),
+                // attributes will be created separately in ProductAttribute factory
             ];
         });
     }
@@ -99,16 +109,7 @@ class ProductFactory extends Factory
                 'name' => "Electrical Fuse {$amperage} {$voltage} - {$type}",
                 'description' => $this->generateFuseDescription($amperage, $voltage, $type),
                 'price' => $this->faker->randomFloat(2, 1, 50),
-                'attributes' => [
-                    'amperage' => $amperage,
-                    'voltage_rating' => $voltage,
-                    'type' => $type,
-                    'mounting' => $this->faker->randomElement($mountings),
-                    'material' => 'ceramic',
-                    'certification' => 'UL Listed',
-                    'operating_temp' => $this->faker->randomElement(['-40°C to +85°C', '-25°C to +70°C']),
-                    'package_qty' => $this->faker->numberBetween(1, 100),
-                ],
+                // attributes will be created separately in ProductAttribute factory
             ];
         });
     }
@@ -128,7 +129,7 @@ class ProductFactory extends Factory
                 'name' => "{$brand} {$item}",
                 'description' => $this->generateSafetyDescription($item),
                 'price' => $this->faker->randomFloat(2, 10, 300),
-                'attributes' => $this->generateSafetyAttributes($item),
+                // attributes will be created separately in ProductAttribute factory
             ];
         });
     }
@@ -144,35 +145,22 @@ class ProductFactory extends Factory
                $this->faker->randomElement($tools);
     }
 
-    private function generateSKU(): string
+    private function generateProductNumber(): string
     {
-        return $this->faker->bothify('??####-###');
+        return $this->faker->unique()->bothify('PN-########');
     }
 
-    private function generateImages(): array
+    private function generateProductTitle(string $name): string
     {
-        $count = $this->faker->numberBetween(3, 5);
-        $images = [];
-
-        for ($i = 0; $i < $count; $i++) {
-            // use randomNumber instead of unique()->numberBetween
-            $images[] = "https://picsum.photos/800/600?random=" . $this->faker->randomNumber(5, true);
-        }
-
-        return $images;
+        return $name . ' - ' . $this->faker->words(2, true);
     }
 
-
-    private function generateThumbnails(): array
+    private function generateBreadcrumb(string $categoryName, string $productName): string
     {
-        $thumbnails = [];
-
-        foreach ([150, 300] as $size) {
-            $thumbnails["{$size}x{$size}"] = "https://picsum.photos/{$size}/{$size}?random=" . $this->faker->unique()->numberBetween(1, 10000);
-        }
-
-        return $thumbnails;
+        return "Home > {$categoryName} > " . Str::limit($productName, 30);
     }
+
+    // Image generation methods moved to ProductImageFactory
 
     private function generateHandToolAttributes(string $tool): array
     {
@@ -286,21 +274,15 @@ class ProductFactory extends Factory
         return "Professional {$equipment} designed to meet or exceed safety standards. Provides excellent protection while maintaining comfort and visibility. Durable construction ensures long-lasting performance in demanding work environments. Essential for workplace safety compliance.";
     }
 
-    public function withRelationships($categoryId = null, $brandId = null, $manufacturerId = null): static
+    public function withRelationships($categoryId = null, $manufacturerId = null): static
     {
-        return $this->state(function () use ($categoryId, $brandId, $manufacturerId) {
+        return $this->state(function () use ($categoryId, $manufacturerId) {
             $state = [];
 
             if ($categoryId !== null) {
                 $category = Category::find($categoryId);
                 $state['category_id'] = $categoryId;
                 $state['category_name'] = $category->name;
-            }
-
-            if ($brandId !== null) {
-                $brand = Brand::find($brandId);
-                $state['brand_id'] = $brandId;
-                $state['brand_name'] = $brand->name;
             }
 
             if ($manufacturerId !== null) {

@@ -64,6 +64,11 @@ class Product extends Model
         return $this->belongsTo(Category::class);
     }
 
+    public function status(): BelongsTo
+    {
+        return $this->belongsTo(Status::class);
+    }
+
     public function sources(): HasMany
     {
         return $this->hasMany(ProductSource::class);

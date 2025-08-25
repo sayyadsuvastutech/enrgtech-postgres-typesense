@@ -25,7 +25,7 @@ return new class extends Migration
             $table->integer('total_reviews')->default(0);
             $table->integer('products_count')->default(0);
             $table->decimal('average_rating', 3, 2)->nullable();
-            $table->bigInteger('status_id')->nullable();
+            $table->foreignId('status_id')->default(1)->constrained('statuses')->onDelete('restrict');
             $table->bigInteger('created_by')->nullable();
             $table->bigInteger('updated_by')->nullable();
             $table->timestamps();

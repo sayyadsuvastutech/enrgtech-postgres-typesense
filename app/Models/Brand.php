@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Brand extends Model
 {
@@ -27,6 +28,7 @@ class Brand extends Model
         'popular_items',
         'new_items',
         'domain_id',
+        'status_id',
         'created_by',
         'updated_by',
     ];
@@ -36,6 +38,7 @@ class Brand extends Model
         return [
             'manufacturer_id' => 'integer',
             'domain_id' => 'integer',
+            'status_id' => 'integer',
             'created_by' => 'integer',
             'updated_by' => 'integer',
         ];
@@ -44,6 +47,11 @@ class Brand extends Model
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function status(): BelongsTo
+    {
+        return $this->belongsTo(Status::class);
     }
 
     public function scopeWithProducts($query)
