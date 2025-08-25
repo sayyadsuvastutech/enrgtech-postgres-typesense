@@ -10,11 +10,36 @@ class Brand extends Model
 {
     use HasFactory;
     protected $fillable = [
+        'manufacturer_id',
         'name',
         'slug',
-        'logo_url',
+        'logo',
+        'banner',
         'description',
+        'website',
+        'type',
+        'size',
+        'location',
+        'founded',
+        'specialties',
+        'meta_title',
+        'meta_description',
+        'popular_items',
+        'new_items',
+        'domain_id',
+        'created_by',
+        'updated_by',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'manufacturer_id' => 'integer',
+            'domain_id' => 'integer',
+            'created_by' => 'integer',
+            'updated_by' => 'integer',
+        ];
+    }
 
     public function products(): HasMany
     {

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -14,31 +15,47 @@ class Product extends Model
 
     protected $fillable = [
         'name',
-        'slug',
+        'title',
+        'code',
+        'product_number',
+        'manufacturer_product_number',
+        'manufacturer_product_slug',
         'description',
-        'sku',
-        'price',
-        'stock_quantity',
-        'status',
         'category_id',
-        'brand_id',
         'manufacturer_id',
+        'breadcrumb',
+        'meta_title',
+        'meta_description',
+        'is_rohs_compliant',
+        'is_verified',
+        'is_pushed',
+        'total_reviews',
+        'average_rating',
+        'video_url',
+        'status_id',
+        'session_insert_id',
+        'session_update_id',
+        'is_updated',
+        'created_by',
+        'updated_by',
         'category_name',
-        'brand_name',
         'manufacturer_name',
-        'images',
-        'thumbnails',
-        'attributes',
     ];
 
     protected function casts(): array
     {
         return [
-            'price' => 'decimal:2',
-            'stock_quantity' => 'integer',
-            'images' => 'array',
-            'thumbnails' => 'array',
-            'attributes' => 'array',
+            'average_rating' => 'decimal:2',
+            'is_rohs_compliant' => 'boolean',
+            'is_verified' => 'boolean',
+            'is_pushed' => 'boolean',
+            'is_updated' => 'boolean',
+            'total_reviews' => 'integer',
+            'status_id' => 'integer',
+            'session_insert_id' => 'integer',
+            'session_update_id' => 'integer',
+            'created_by' => 'integer',
+            'updated_by' => 'integer',
         ];
     }
 
@@ -47,9 +64,34 @@ class Product extends Model
         return $this->belongsTo(Category::class);
     }
 
-    public function brand(): BelongsTo
+    public function sources(): HasMany
     {
-        return $this->belongsTo(Brand::class);
+        return $this->hasMany(ProductSource::class);
+    }
+
+    public function attributes(): HasMany
+    {
+        return $this->hasMany(ProductAttribute::class);
+    }
+
+    public function prices(): HasMany
+    {
+        return $this->hasMany(ProductPrice::class);
+    }
+
+    public function images(): HasMany
+    {
+        return $this->hasMany(ProductImage::class);
+    }
+
+    public function quantities(): HasMany
+    {
+        return $this->hasMany(ProductQuantity::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(ProductDocument::class);
     }
 
     public function manufacturer(): BelongsTo
@@ -91,6 +133,11 @@ class Product extends Model
     public function scopeByManufacturer(Builder $query, $manufacturerId): Builder
     {
         return $query->where('manufacturer_id', $manufacturerId);
+    }
+
+    public function scopeByProductNumber(Builder $query, string $productNumber): Builder
+    {
+        return $query->where('product_number', $productNumber);
     }
 
     /**

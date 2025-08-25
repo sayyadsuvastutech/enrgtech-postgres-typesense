@@ -98,32 +98,60 @@ return new class extends Migration
             DECLARE
                 attributes_text TEXT := '';
             BEGIN
-                -- Extract attributes keys and values from JSONB (only if it's an object, not array or null)
-                IF NEW.attributes IS NOT NULL AND jsonb_typeof(NEW.attributes) = 'object' THEN
-                    SELECT string_agg(
-                        CASE
-                            WHEN jsonb_typeof(value) = 'string' THEN
-                                key || ' ' || REPLACE(value::text, '\"', '')
-                            WHEN jsonb_typeof(value) = 'number' THEN
-                                key || ' ' || value::text
-                            WHEN jsonb_typeof(value) = 'boolean' THEN
-                                key || ' ' || value::text
-                            ELSE
-                                key
-                        END,
-                        ' '
-                    )
-                    INTO attributes_text
-                    FROM jsonb_each(NEW.attributes);
-                END IF;
+                -- Extract attributes from related product_attributes table
+                SELECT string_agg(
+                    CASE
+                        WHEN pa.attributes_data IS NOT NULL THEN
+                            COALESCE(
+                                (
+                                    SELECT string_agg(
+                                        CASE
+                                            WHEN jsonb_typeof(attr.value) = 'string' THEN
+                                                attr.key || ' ' || REPLACE(attr.value::text, '\"', '')
+                                            WHEN jsonb_typeof(attr.value) = 'number' THEN
+                                                attr.key || ' ' || attr.value::text
+                                            WHEN jsonb_typeof(attr.value) = 'boolean' THEN
+                                                attr.key || ' ' || attr.value::text
+                                            ELSE
+                                                attr.key
+                                        END,
+                                        ' '
+                                    )
+                                    FROM jsonb_each(
+                                        CASE 
+                                            WHEN pa.attributes_data ? 'attributes' THEN
+                                                pa.attributes_data->'attributes'
+                                            ELSE
+                                                pa.attributes_data
+                                        END
+                                    ) AS attr(key, value)
+                                    WHERE jsonb_typeof(
+                                        CASE 
+                                            WHEN pa.attributes_data ? 'attributes' THEN
+                                                pa.attributes_data->'attributes'
+                                            ELSE
+                                                pa.attributes_data
+                                        END
+                                    ) = 'object'
+                                ), ''
+                            )
+                        ELSE
+                            ''
+                    END,
+                    ' '
+                )
+                INTO attributes_text
+                FROM product_attributes pa
+                WHERE pa.product_id = NEW.id;
 
                 -- Create the search vector including all searchable fields
                 NEW.search_vector = to_tsvector('english',
                     coalesce(NEW.name, '') || ' ' ||
+                    coalesce(NEW.title, '') || ' ' ||
                     coalesce(NEW.description, '') || ' ' ||
-                    coalesce(NEW.sku, '') || ' ' ||
+                    coalesce(NEW.product_number, '') || ' ' ||
+                    coalesce(NEW.manufacturer_product_number, '') || ' ' ||
                     coalesce(NEW.category_name, '') || ' ' ||
-                    coalesce(NEW.brand_name, '') || ' ' ||
                     coalesce(NEW.manufacturer_name, '') || ' ' ||
                     coalesce(attributes_text, '')
                 );
@@ -202,8 +230,8 @@ return new class extends Migration
         ');
 
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_sku_text_gin_idx
-            ON products USING GIN (to_tsvector(\'english\', sku))
+            CREATE INDEX IF NOT EXISTS products_product_number_text_gin_idx
+            ON products USING GIN (to_tsvector(\'english\', product_number))
             WHERE status = \'active\'
         ');
     }
@@ -228,10 +256,10 @@ return new class extends Migration
             ON products USING GIN (name gin_trgm_ops) WHERE status = \'active\'
         ');
 
-        // 5.3: Trigram index for SKU fuzzy matching
+        // 5.3: Trigram index for product_number fuzzy matching
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_active_sku_trgm_idx
-            ON products USING GIN (sku gin_trgm_ops) WHERE status = \'active\'
+            CREATE INDEX IF NOT EXISTS products_active_product_number_trgm_idx
+            ON products USING GIN (product_number gin_trgm_ops) WHERE status = \'active\'
         ');
     }
 
@@ -390,12 +418,12 @@ return new class extends Migration
             'products_active_name_idx',
 
             // Fuzzy matching indexes
-            'products_active_sku_trgm_idx',
+            'products_active_product_number_trgm_idx',
             'products_active_name_trgm_idx',
             'products_name_trgm_gin_idx',
 
             // Full-text search indexes
-            'products_sku_text_gin_idx',
+            'products_product_number_text_gin_idx',
             'products_name_text_gin_idx',
             'products_active_search_vector_idx',
             'products_search_vector_gin_idx',

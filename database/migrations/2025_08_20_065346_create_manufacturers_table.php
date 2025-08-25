@@ -15,12 +15,24 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('slug');
-            $table->json('contact_info')->nullable();
             $table->text('description')->nullable();
+            $table->string('logo')->nullable();
+            $table->string('banner')->nullable();
+            $table->string('meta_title')->nullable();
+            $table->string('meta_description')->nullable();
+            $table->boolean('is_pushed')->default(false);
+            $table->string('website')->nullable();
+            $table->integer('total_reviews')->default(0);
+            $table->integer('products_count')->default(0);
+            $table->decimal('average_rating', 3, 2)->nullable();
+            $table->bigInteger('status_id')->nullable();
+            $table->bigInteger('created_by')->nullable();
+            $table->bigInteger('updated_by')->nullable();
             $table->timestamps();
 
             // PostgreSQL specific indexes for performance
             $table->index('name');
+            $table->index('status_id');
         });
     }
 

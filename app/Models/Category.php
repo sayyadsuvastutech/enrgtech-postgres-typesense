@@ -12,10 +12,20 @@ class Category extends Model
     use HasFactory;
     
     protected $fillable = [
+        'category_id',
         'name',
         'slug',
-        'parent_id',
+        'image',
+        'image_url',
         'description',
+        'meta_title',
+        'meta_description',
+        'popular_items',
+        'new_items',
+        'status_id',
+        'domain_id',
+        'created_by',
+        'updated_by',
     ];
 
     public function products(): HasMany
@@ -23,44 +33,19 @@ class Category extends Model
         return $this->hasMany(Product::class);
     }
 
-    public function parent(): BelongsTo
+    protected function casts(): array
     {
-        return $this->belongsTo(Category::class, 'parent_id');
-    }
-
-    public function children(): HasMany
-    {
-        return $this->hasMany(Category::class, 'parent_id');
-    }
-
-    public function allChildren(): HasMany
-    {
-        return $this->hasMany(Category::class, 'parent_id')->with('allChildren');
-    }
-
-    public function scopeRootCategories($query)
-    {
-        return $query->whereNull('parent_id');
+        return [
+            'category_id' => 'integer',
+            'status_id' => 'integer',
+            'domain_id' => 'integer',
+            'created_by' => 'integer',
+            'updated_by' => 'integer',
+        ];
     }
 
     public function scopeWithProducts($query)
     {
         return $query->has('products');
-    }
-
-    public function scopeMain($query)
-    {
-        return $query->whereNull('parent_id');
-    }
-
-    public static function toTree($categories = null)
-    {
-        if ($categories === null) {
-            $categories = static::with('children')->get();
-        }
-        
-        return $categories->filter(function ($category) {
-            return $category->parent_id === null;
-        })->values();
     }
 }

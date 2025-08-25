@@ -13,15 +13,26 @@ return new class extends Migration
     {
         Schema::create('categories', function (Blueprint $table) {
             $table->id();
+            $table->integer('category_id')->nullable();
             $table->string('name');
             $table->string('slug');
-            $table->foreignId('parent_id')->nullable()->constrained('categories')->onDelete('cascade');
+            $table->string('image')->nullable();
+            $table->string('image_url')->nullable();
             $table->text('description')->nullable();
+            $table->string('meta_title')->nullable();
+            $table->text('meta_description')->nullable();
+            $table->text('popular_items')->nullable();
+            $table->text('new_items')->nullable();
+            $table->bigInteger('status_id')->nullable();
+            $table->bigInteger('domain_id')->nullable();
+            $table->bigInteger('created_by')->nullable();
+            $table->bigInteger('updated_by')->nullable();
             $table->timestamps();
 
             // PostgreSQL specific indexes for performance
-            $table->index('parent_id');
-            $table->index(['parent_id', 'name']);
+            $table->index('category_id');
+            $table->index('status_id');
+            $table->index('domain_id');
         });
     }
 

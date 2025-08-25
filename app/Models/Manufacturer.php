@@ -12,14 +12,31 @@ class Manufacturer extends Model
     protected $fillable = [
         'name',
         'slug',
-        'contact_info',
         'description',
+        'logo',
+        'banner',
+        'meta_title',
+        'meta_description',
+        'is_pushed',
+        'website',
+        'total_reviews',
+        'products_count',
+        'average_rating',
+        'status_id',
+        'created_by',
+        'updated_by',
     ];
 
     protected function casts(): array
     {
         return [
-            'contact_info' => 'array',
+            'is_pushed' => 'boolean',
+            'total_reviews' => 'integer',
+            'products_count' => 'integer',
+            'average_rating' => 'decimal:2',
+            'status_id' => 'integer',
+            'created_by' => 'integer',
+            'updated_by' => 'integer',
         ];
     }
 
