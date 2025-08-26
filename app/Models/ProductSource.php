@@ -14,12 +14,14 @@ class ProductSource extends Model
         'source_name',
         'source_product_id',
         'source_url',
+        'source_date',
     ];
 
     protected function casts(): array
     {
         return [
             'source_product_id' => 'integer',
+            'source_date' => 'array',
         ];
     }
 

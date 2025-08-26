@@ -22,7 +22,7 @@ class ProductImageFactory extends Factory
         return [
             'product_id' => Product::factory(),
             'source_name' => $this->faker->randomElement(self::$sources),
-            'images_data' => $this->generateImagesData(),
+            'images' => $this->generateImagesData(),
         ];
     }
 
@@ -69,7 +69,7 @@ class ProductImageFactory extends Factory
     {
         return $this->state(function () {
             return [
-                'images_data' => [
+                'images' => [
                     'images' => [
                         [
                             'path' => $this->generateImagePath(),
@@ -94,7 +94,7 @@ class ProductImageFactory extends Factory
             }
             
             return [
-                'images_data' => $imagesData,
+                'images' => $imagesData,
             ];
         });
     }

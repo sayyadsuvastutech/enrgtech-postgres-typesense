@@ -41,6 +41,7 @@ class Product extends Model
         'updated_by',
         'category_name',
         'manufacturer_name',
+        'brand_name',
     ];
 
     protected function casts(): array
@@ -118,10 +119,8 @@ class Product extends Model
     public function scopeInStock(Builder $query): Builder
     {
         return $query->whereHas('quantities', function ($q) {
-            $q->where(function ($subQ) {
-                $subQ->whereRaw("(quantity_data->>'quantity')::int > 0")
-                    ->orWhereRaw("(quantity_data->>'available')::int > 0");
-            });
+            $q->where('quantity', '>', 0)
+                ->orWhere('availability_status', '!=', 'out_of_stock');
         });
     }
 
@@ -130,10 +129,10 @@ class Product extends Model
         if ($min !== null || $max !== null) {
             $query->whereHas('prices', function ($q) use ($min, $max) {
                 if ($min !== null) {
-                    $q->whereRaw("(pricing_data->>'unit_price')::numeric >= ?", [$min]);
+                    $q->whereRaw("(pricing_ranges->0->>'price')::numeric >= ?", [$min]);
                 }
                 if ($max !== null) {
-                    $q->whereRaw("(pricing_data->>'unit_price')::numeric <= ?", [$max]);
+                    $q->whereRaw("(pricing_ranges->0->>'price')::numeric <= ?", [$max]);
                 }
             });
         }
@@ -244,12 +243,7 @@ class Product extends Model
     {
         $totalStock = 0;
         foreach ($this->quantities as $quantity) {
-            $data = $quantity->quantity_data;
-            if (isset($data['quantity'])) {
-                $totalStock += (int) $data['quantity'];
-            } elseif (isset($data['available'])) {
-                $totalStock += (int) $data['available'];
-            }
+            $totalStock += (int) $quantity->quantity;
         }
         return $totalStock > 0;
     }
@@ -263,12 +257,7 @@ class Product extends Model
     {
         $totalStock = 0;
         foreach ($this->quantities as $quantity) {
-            $data = $quantity->quantity_data;
-            if (isset($data['quantity'])) {
-                $totalStock += (int) $data['quantity'];
-            } elseif (isset($data['available'])) {
-                $totalStock += (int) $data['available'];
-            }
+            $totalStock += (int) $quantity->quantity;
         }
         return $totalStock;
     }
@@ -278,20 +267,16 @@ class Product extends Model
         // Get the lowest price from all sources
         $lowestPrice = null;
         foreach ($this->prices as $price) {
-            $priceData = $price->pricing_data;
+            $priceRanges = $price->pricing_ranges;
             $currentPrice = null;
             
-            // Handle different pricing structures
-            if (isset($priceData['unit_price'])) {
-                $currentPrice = (float) $priceData['unit_price'];
-            } elseif (isset($priceData['ranges']) && is_array($priceData['ranges'])) {
+            // Handle pricing ranges structure
+            if (is_array($priceRanges) && !empty($priceRanges)) {
                 // Get the first (lowest quantity) price range
-                $firstRange = $priceData['ranges'][0] ?? null;
+                $firstRange = $priceRanges[0] ?? null;
                 if ($firstRange && isset($firstRange['price'])) {
                     $currentPrice = (float) $firstRange['price'];
                 }
-            } elseif (isset($priceData['price'])) {
-                $currentPrice = (float) $priceData['price'];
             }
             
             if ($currentPrice !== null && ($lowestPrice === null || $currentPrice < $lowestPrice)) {
@@ -325,8 +310,8 @@ class Product extends Model
     {
         $allAttributes = [];
         foreach ($this->attributes as $attribute) {
-            if (isset($attribute->attributes_data) && is_array($attribute->attributes_data)) {
-                $allAttributes = array_merge($allAttributes, $attribute->attributes_data);
+            if (isset($attribute->attributes) && is_array($attribute->attributes)) {
+                $allAttributes = array_merge($allAttributes, $attribute->attributes);
             }
         }
         return $allAttributes;
@@ -335,8 +320,8 @@ class Product extends Model
     public function getPrimaryImageAttribute(): ?string
     {
         $firstImage = $this->images->first();
-        if ($firstImage && isset($firstImage->images_data['url'])) {
-            return $firstImage->images_data['url'];
+        if ($firstImage && isset($firstImage->images['url'])) {
+            return $firstImage->images['url'];
         }
         return null;
     }

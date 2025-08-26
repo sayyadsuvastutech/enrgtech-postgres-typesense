@@ -23,36 +23,29 @@ class ProductPriceFactory extends Factory
         return [
             'product_id' => Product::factory(),
             'source_name' => $this->faker->randomElement(self::$sources),
-            'pricing_data' => $this->generatePricingData(),
+            'pricing_ranges' => $this->generatePricingRanges(),
+            'currency' => $this->faker->randomElement(self::$currencies),
+            'unit' => 'each',
         ];
     }
 
-    private function generatePricingData(): array
+    private function generatePricingRanges(): array
     {
-        $currency = $this->faker->randomElement(self::$currencies);
         $basePrice = $this->faker->randomFloat(2, 5, 500);
         
-        $ranges = [
+        return [
             [
-                'from' => 1,
-                'to' => 99,
+                'min_quantity' => 1,
                 'price' => round($basePrice, 2),
             ],
             [
-                'from' => 100,
-                'to' => 999,
+                'min_quantity' => 100,
                 'price' => round($basePrice * 0.85, 2),
             ],
             [
-                'from' => 1000,
-                'to' => null,
+                'min_quantity' => 1000,
                 'price' => round($basePrice * 0.70, 2),
             ],
-        ];
-
-        return [
-            'currency' => $currency,
-            'ranges' => $ranges,
         ];
     }
 
@@ -65,14 +58,9 @@ class ProductPriceFactory extends Factory
 
     public function withCurrency(string $currency): static
     {
-        return $this->state(function () use ($currency) {
-            $pricingData = $this->generatePricingData();
-            $pricingData['currency'] = $currency;
-            
-            return [
-                'pricing_data' => $pricingData,
-            ];
-        });
+        return $this->state([
+            'currency' => $currency,
+        ]);
     }
 
     public function highValue(): static
@@ -82,27 +70,23 @@ class ProductPriceFactory extends Factory
             
             $ranges = [
                 [
-                    'from' => 1,
-                    'to' => 9,
+                    'min_quantity' => 1,
                     'price' => round($basePrice, 2),
                 ],
                 [
-                    'from' => 10,
-                    'to' => 99,
+                    'min_quantity' => 10,
                     'price' => round($basePrice * 0.90, 2),
                 ],
                 [
-                    'from' => 100,
-                    'to' => null,
+                    'min_quantity' => 100,
                     'price' => round($basePrice * 0.75, 2),
                 ],
             ];
 
             return [
-                'pricing_data' => [
-                    'currency' => 'USD',
-                    'ranges' => $ranges,
-                ],
+                'pricing_ranges' => $ranges,
+                'currency' => 'USD',
+                'unit' => 'each',
             ];
         });
     }

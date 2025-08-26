@@ -12,13 +12,13 @@ class ProductImage extends Model
     protected $fillable = [
         'product_id',
         'source_name',
-        'images_data',
+        'images',
     ];
 
     protected function casts(): array
     {
         return [
-            'images_data' => 'array',
+            'images' => 'array',
         ];
     }
 

@@ -12,13 +12,13 @@ class ProductAttribute extends Model
     protected $fillable = [
         'product_id',
         'source_name',
-        'attributes_data',
+        'attributes',
     ];
 
     protected function casts(): array
     {
         return [
-            'attributes_data' => 'array',
+            'attributes' => 'array',
         ];
     }
 

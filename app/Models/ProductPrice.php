@@ -12,13 +12,15 @@ class ProductPrice extends Model
     protected $fillable = [
         'product_id',
         'source_name',
-        'pricing_data',
+        'pricing_ranges',
+        'currency',
+        'unit',
     ];
 
     protected function casts(): array
     {
         return [
-            'pricing_data' => 'array',
+            'pricing_ranges' => 'array',
         ];
     }
 

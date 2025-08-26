@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('product_id')->constrained()->onDelete('cascade');
             $table->string('source_name', 50); // dk, rs, ct, vp, et
-            $table->jsonb('images_data'); // JSON structure for images array
+            $table->jsonb('images')->nullable();
             $table->timestamps();
 
             // Indexes for performance

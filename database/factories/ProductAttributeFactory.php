@@ -22,7 +22,7 @@ class ProductAttributeFactory extends Factory
         return [
             'product_id' => Product::factory(),
             'source_name' => $this->faker->randomElement(self::$sources),
-            'attributes_data' => $this->generateAttributesData(),
+            'attributes' => $this->generateAttributesData(),
         ];
     }
 
@@ -72,7 +72,7 @@ class ProductAttributeFactory extends Factory
             ];
             
             return [
-                'attributes_data' => [
+                'attributes' => [
                     'attributes' => $attributes,
                     'filter_attributes' => array_slice($attributes, 0, 3),
                 ],

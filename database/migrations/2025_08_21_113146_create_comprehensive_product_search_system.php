@@ -101,7 +101,7 @@ return new class extends Migration
                 -- Extract attributes from related product_attributes table
                 SELECT string_agg(
                     CASE
-                        WHEN pa.attributes_data IS NOT NULL THEN
+                        WHEN pa.attributes IS NOT NULL THEN
                             COALESCE(
                                 (
                                     SELECT string_agg(
@@ -117,22 +117,8 @@ return new class extends Migration
                                         END,
                                         ' '
                                     )
-                                    FROM jsonb_each(
-                                        CASE 
-                                            WHEN pa.attributes_data ? 'attributes' THEN
-                                                pa.attributes_data->'attributes'
-                                            ELSE
-                                                pa.attributes_data
-                                        END
-                                    ) AS attr(key, value)
-                                    WHERE jsonb_typeof(
-                                        CASE 
-                                            WHEN pa.attributes_data ? 'attributes' THEN
-                                                pa.attributes_data->'attributes'
-                                            ELSE
-                                                pa.attributes_data
-                                        END
-                                    ) = 'object'
+                                    FROM jsonb_each(pa.attributes) AS attr(key, value)
+                                    WHERE jsonb_typeof(pa.attributes) = 'object'
                                 ), ''
                             )
                         ELSE
@@ -152,6 +138,7 @@ return new class extends Migration
                     coalesce(NEW.product_number, '') || ' ' ||
                     coalesce(NEW.manufacturer_product_number, '') || ' ' ||
                     coalesce(NEW.category_name, '') || ' ' ||
+                    coalesce(NEW.brand_name, '') || ' ' ||
                     coalesce(NEW.manufacturer_name, '') || ' ' ||
                     coalesce(attributes_text, '')
                 );

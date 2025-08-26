@@ -53,30 +53,20 @@ class ProductSearchService
         // Apply price range filter
         if (isset($params['min_price']) && $params['min_price'] !== null) {
             $query->whereHas('prices', function ($q) use ($params) {
-                $q->where(function ($subQ) use ($params) {
-                    $subQ->whereRaw("(pricing_data->>'unit_price')::numeric >= ?", [$params['min_price']])
-                        ->orWhereRaw("(pricing_data->'ranges'->0->>'price')::numeric >= ?", [$params['min_price']])
-                        ->orWhereRaw("(pricing_data->>'price')::numeric >= ?", [$params['min_price']]);
-                });
+                $q->whereRaw("(pricing_ranges->0->>'price')::numeric >= ?", [$params['min_price']]);
             });
         }
         if (isset($params['max_price']) && $params['max_price'] !== null) {
             $query->whereHas('prices', function ($q) use ($params) {
-                $q->where(function ($subQ) use ($params) {
-                    $subQ->whereRaw("(pricing_data->>'unit_price')::numeric <= ?", [$params['max_price']])
-                        ->orWhereRaw("(pricing_data->'ranges'->0->>'price')::numeric <= ?", [$params['max_price']])
-                        ->orWhereRaw("(pricing_data->>'price')::numeric <= ?", [$params['max_price']]);
-                });
+                $q->whereRaw("(pricing_ranges->0->>'price')::numeric <= ?", [$params['max_price']]);
             });
         }
 
         // Apply stock filter
         if (!empty($params['in_stock'])) {
             $query->whereHas('quantities', function ($q) {
-                $q->where(function ($subQ) {
-                    $subQ->whereRaw("(quantity_data->>'quantity')::int > 0")
-                        ->orWhereRaw("(quantity_data->>'available')::int > 0");
-                });
+                $q->where('quantity', '>', 0)
+                    ->orWhere('availability_status', '!=', 'out_of_stock');
             });
         }
 
@@ -146,15 +136,9 @@ class ProductSearchService
                 $query->orderBy('name', $sortOrder);
                 break;
             case 'price':
-                // Order by minimum price from all sources - handle multiple price structures
+                // Order by minimum price from all sources
                 $query->leftJoin('product_prices', 'products.id', '=', 'product_prices.product_id')
-                    ->orderByRaw("MIN(
-                        COALESCE(
-                            (product_prices.pricing_data->>'unit_price')::numeric,
-                            (product_prices.pricing_data->'ranges'->0->>'price')::numeric,
-                            (product_prices.pricing_data->>'price')::numeric
-                        )
-                    ) $sortOrder")
+                    ->orderByRaw("MIN((product_prices.pricing_ranges->0->>'price')::numeric) $sortOrder")
                     ->groupBy('products.id');
                 break;
             case 'newest':
@@ -229,20 +213,8 @@ class ProductSearchService
             ->join('products', 'products.id', '=', 'product_prices.product_id')
             ->where('products.status_id', 1)
             ->selectRaw("
-                MIN(
-                    COALESCE(
-                        (product_prices.pricing_data->>'unit_price')::numeric,
-                        (product_prices.pricing_data->'ranges'->0->>'price')::numeric,
-                        (product_prices.pricing_data->>'price')::numeric
-                    )
-                ) as min_price, 
-                MAX(
-                    COALESCE(
-                        (product_prices.pricing_data->>'unit_price')::numeric,
-                        (product_prices.pricing_data->'ranges'->0->>'price')::numeric,
-                        (product_prices.pricing_data->>'price')::numeric
-                    )
-                ) as max_price
+                MIN((product_prices.pricing_ranges->0->>'price')::numeric) as min_price, 
+                MAX((product_prices.pricing_ranges->0->>'price')::numeric) as max_price
             ")
             ->first();
 

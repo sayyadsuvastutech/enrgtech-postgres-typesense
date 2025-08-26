@@ -13,6 +13,7 @@ class MassProductSeeder extends Seeder
 {
     private int $batchSize = 1000;
     private int $totalProducts = 2000000;
+    private array $relatedProductData = [];
 
     public function run(): void
     {
@@ -40,7 +41,7 @@ class MassProductSeeder extends Seeder
             $remaining = $this->totalProducts - ($batch * $this->batchSize);
             $currentBatchSize = min($this->batchSize, $remaining);
 
-            $this->createProductBatch($currentBatchSize, $categories, $brands, $manufacturers);
+            $this->createProductBatch($currentBatchSize, $categories, $brands, $manufacturers, $batch);
             $bar->advance();
 
             // Memory cleanup every 10 batches
@@ -61,7 +62,7 @@ class MassProductSeeder extends Seeder
         $this->printFinalStats();
     }
 
-    private function createProductBatch(int $count, $categories, $brands, $manufacturers): void
+    private function createProductBatch(int $count, $categories, $brands, $manufacturers, int $batchNumber): void
     {
         $products = [];
         $timestamp = now();
@@ -76,28 +77,50 @@ class MassProductSeeder extends Seeder
 
             $products[] = [
                 'name' => $productData['name'],
-                'slug' => $productData['slug'],
+                'title' => $productData['name'], // Use name as title
                 'description' => $productData['description'],
-                'sku' => $productData['sku'],
-                'price' => $productData['price'],
-                'stock_quantity' => $productData['stock_quantity'],
-                'status' => $productData['status'],
+                'product_number' => $productData['sku'],
+                'manufacturer_product_number' => $productData['sku'],
                 'category_id' => $category->id,
                 'brand_id' => $brand->id,
                 'manufacturer_id' => $manufacturer->id,
                 'category_name' => $category->name,
-                'brand_name' => $brand->name,
                 'manufacturer_name' => $manufacturer->name,
-                'images' => $productData['images'],
-                'thumbnails' => $productData['thumbnails'],
-                'attributes' => $productData['attributes'],
+                'brand_name' => $brand->name,
+                'is_rohs_compliant' => fake()->boolean(80), // 80% chance of being RoHS compliant
+                'is_verified' => fake()->boolean(70), // 70% chance of being verified
+                'is_pushed' => fake()->boolean(50), // 50% chance of being pushed
+                'status_id' => fake()->randomElement([1, 1, 1, 2]), // Mostly active (status_id = 1)
                 'created_at' => $timestamp,
                 'updated_at' => $timestamp,
             ];
+            
+            // Store additional data for related tables
+            $this->relatedProductData[] = [
+                'product_index' => count($products) - 1,
+                'price_data' => $productData['price_data'],
+                'quantity_data' => $productData['quantity_data'],
+                'images_data' => $productData['images_data'],
+                'attributes_data' => $productData['attributes_data'],
+            ];
         }
 
-        // Bulk insert for performance
+        // Bulk insert products for performance
         DB::table('products')->insert($products);
+        
+        // Get the inserted product IDs
+        $startId = DB::table('products')
+            ->orderBy('id', 'desc')
+            ->limit($count)
+            ->pluck('id')
+            ->reverse()
+            ->values();
+            
+        // Create related data
+        $this->createRelatedProductData($startId);
+        
+        // Clear the related data array to free memory
+        $this->relatedProductData = [];
     }
 
     private function generateRealisticProduct($category, $brand, $manufacturer): array
@@ -119,15 +142,31 @@ class MassProductSeeder extends Seeder
 
         return [
             'name' => $productName,
-            'slug' => \Illuminate\Support\Str::slug($productName) . '-' . $timestamp . '-' . $random,
             'description' => $this->generateProductDescription($categoryName, $brand->name, $productName),
-            'price' => $pricing['price'],
             'sku' => $sku,
-            'stock_quantity' => fake()->numberBetween(0, 500),
-            'status' => fake()->randomElement(['active', 'inactive', 'draft', 'discontinued']),
-            'images' => json_encode($this->generateRandomImages()),
-            'thumbnails' => json_encode($this->generateRandomThumbnails()),
-            'attributes' => json_encode($this->generateRandomAttributes($categoryName)),
+            'price_data' => [
+                'pricing_ranges' => [
+                    [
+                        'min_quantity' => 1,
+                        'price' => $pricing['price'],
+                        'currency' => 'USD'
+                    ],
+                    [
+                        'min_quantity' => 10,
+                        'price' => round($pricing['price'] * 0.9, 2),
+                        'currency' => 'USD'
+                    ]
+                ],
+                'currency' => 'USD',
+                'unit' => 'each'
+            ],
+            'quantity_data' => [
+                'quantity' => fake()->numberBetween(0, 500),
+                'availability_status' => fake()->randomElement(['in_stock', 'low_stock', 'out_of_stock', 'backorder']),
+                'unit' => 'each'
+            ],
+            'images_data' => $this->generateRandomImages(),
+            'attributes_data' => $this->generateRandomAttributes($categoryName),
         ];
     }
 
@@ -270,6 +309,84 @@ class MassProductSeeder extends Seeder
         return $attributesByCategory[$categoryName] ?? $defaultAttributes;
     }
 
+    private function createRelatedProductData($productIds): void
+    {
+        $sources = ['dk', 'rs', 'ct', 'vp', 'et'];
+        $timestamp = now();
+        
+        // Prepare bulk insert arrays
+        $productSources = [];
+        $productPrices = [];
+        $productQuantities = [];
+        $productImages = [];
+        $productAttributes = [];
+        
+        foreach ($productIds as $index => $productId) {
+            $relatedData = $this->relatedProductData[$index] ?? null;
+            if (!$relatedData) continue;
+            
+            $sourceName = fake()->randomElement($sources);
+            
+            // Create product source
+            $productSources[] = [
+                'product_id' => $productId,
+                'source_name' => $sourceName,
+                'source_product_id' => fake()->numberBetween(10000, 99999),
+                'source_url' => 'https://example.com/product/' . fake()->numberBetween(10000, 99999),
+                'source_date' => json_encode(['last_updated' => now()->toDateString()]),
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ];
+            
+            // Create product price
+            $productPrices[] = [
+                'product_id' => $productId,
+                'source_name' => $sourceName,
+                'pricing_ranges' => json_encode($relatedData['price_data']['pricing_ranges']),
+                'currency' => $relatedData['price_data']['currency'],
+                'unit' => $relatedData['price_data']['unit'],
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ];
+            
+            // Create product quantity
+            $productQuantities[] = [
+                'product_id' => $productId,
+                'source_name' => $sourceName,
+                'unit' => $relatedData['quantity_data']['unit'],
+                'quantity' => $relatedData['quantity_data']['quantity'],
+                'availability_status' => $relatedData['quantity_data']['availability_status'],
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ];
+            
+            // Create product images
+            $productImages[] = [
+                'product_id' => $productId,
+                'source_name' => $sourceName,
+                'images' => json_encode($relatedData['images_data']),
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ];
+            
+            // Create product attributes
+            $productAttributes[] = [
+                'product_id' => $productId,
+                'source_name' => $sourceName,
+                'attributes' => json_encode($relatedData['attributes_data']),
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ];
+        }
+        
+        // Bulk insert all related data
+        if (!empty($productSources)) DB::table('product_sources')->insert($productSources);
+        if (!empty($productPrices)) DB::table('product_prices')->insert($productPrices);
+        if (!empty($productQuantities)) DB::table('product_quantities')->insert($productQuantities);
+        if (!empty($productImages)) DB::table('product_images')->insert($productImages);
+        if (!empty($productAttributes)) DB::table('product_attributes')->insert($productAttributes);
+    }
+
     private function updateDenormalizedFields(): void
     {
         // Update in smaller chunks to avoid memory issues
@@ -277,14 +394,14 @@ class MassProductSeeder extends Seeder
         $bar = $this->command->getOutput()->createProgressBar(ceil($this->totalProducts / $chunkSize));
         $bar->start();
 
-        Product::with(['category', 'brand', 'manufacturer'])->chunk($chunkSize, function ($products) use ($bar) {
+        Product::with(['category', 'manufacturer', 'brand'])->chunk($chunkSize, function ($products) use ($bar) {
             $updates = [];
             foreach ($products as $product) {
                 $updates[] = [
                     'id' => $product->id,
-                    'category_name' => $product->category->name,
-                    'brand_name' => $product->brand->name,
-                    'manufacturer_name' => $product->manufacturer->name,
+                    'category_name' => $product->category?->name,
+                    'manufacturer_name' => $product->manufacturer?->name,
+                    'brand_name' => $product->brand?->name,
                 ];
             }
 
@@ -294,8 +411,8 @@ class MassProductSeeder extends Seeder
                     ->where('id', $update['id'])
                     ->update([
                         'category_name' => $update['category_name'],
-                        'brand_name' => $update['brand_name'],
                         'manufacturer_name' => $update['manufacturer_name'],
+                        'brand_name' => $update['brand_name'],
                     ]);
             }
 
@@ -313,8 +430,8 @@ class MassProductSeeder extends Seeder
             ['Categories', Category::count()],
             ['Brands', Brand::count()],
             ['Manufacturers', Manufacturer::count()],
-            ['Average Products per Category', number_format(Product::count() / Category::count(), 0)],
-            ['Average Products per Brand', number_format(Product::count() / Brand::count(), 0)],
+            ['Average Products per Category', number_format(Product::count() / max(Category::count(), 1), 0)],
+            ['Average Products per Manufacturer', number_format(Product::count() / max(Manufacturer::count(), 1), 0)],
         ]);
 
         $this->command->info('💾 Database size impact: ~' . number_format(Product::count() * 0.5, 0) . ' MB estimated');

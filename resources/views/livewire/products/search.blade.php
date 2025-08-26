@@ -352,7 +352,7 @@ class extends Component {
                                      loading="lazy">
 
                                 <!-- Stock Badge -->
-                                @if($product->stock_quantity <= 0)
+                                @if(!$product->isInStock())
                                     <div class="absolute top-2 right-2">
                                         <span
                                             class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -377,9 +377,9 @@ class extends Component {
                                     {{ $product->name }}
                                 </h3>
 
-                                <!-- SKU -->
+                                <!-- Product Number -->
                                 <div class="text-xs text-gray-600 font-mono">
-                                    SKU: {{ $product->sku }}
+                                    SKU: {{ $product->product_number }}
                                 </div>
 
                                 <!-- Price & Stock -->
@@ -388,7 +388,7 @@ class extends Component {
                                         ${{ number_format($product->price, 2) }}
                                     </div>
                                     <div class="text-xs text-gray-600">
-                                        {{ $product->stock_quantity > 0 ? $product->stock_quantity . ' in stock' : 'Out of stock' }}
+                                        {{ $product->isInStock() ? $product->stock_quantity . ' in stock' : 'Out of stock' }}
                                     </div>
                                 </div>
                             </div>

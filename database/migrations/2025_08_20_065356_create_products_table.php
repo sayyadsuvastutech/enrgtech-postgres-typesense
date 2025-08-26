@@ -17,7 +17,7 @@ return new class extends Migration
 
             // Basic product fields
             $table->string('name');
-            $table->string('title');
+            $table->string('title')->nullable();
             $table->string('code')->nullable();
             $table->string('product_number')->unique();
             $table->string('manufacturer_product_number')->nullable();
@@ -25,18 +25,18 @@ return new class extends Migration
             $table->text('description')->nullable();
 
             // Foreign keys
-            $table->foreignId('category_id')->constrained()->onDelete('cascade');
-            $table->foreignId('manufacturer_id')->constrained()->onDelete('cascade');
+            $table->foreignId('category_id')->nullable()->constrained()->onDelete('cascade');
+            $table->string('category_name')->nullable();
+            $table->foreignId('manufacturer_id')->nullable()->constrained()->onDelete('cascade');
+            $table->string('manufacturer_name')->nullable();
             $table->foreignId('brand_id')->nullable()->constrained()->onDelete('set null');
+            $table->string('brand_name')->nullable()->after('manufacturer_name');
 
             // Additional fields
             $table->string('breadcrumb')->nullable();
             $table->string('meta_title')->nullable();
             $table->string('meta_description')->nullable();
 
-            // Denormalized fields for performance (synced via triggers)
-            $table->string('category_name')->nullable();
-            $table->string('manufacturer_name')->nullable();
             $table->boolean('is_rohs_compliant')->default(false);
             $table->boolean('is_verified')->default(false);
             $table->boolean('is_pushed')->default(false);

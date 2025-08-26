@@ -27,6 +27,7 @@ class ProductSourceFactory extends Factory
             'source_name' => $source,
             'source_product_id' => $sourceProductId,
             'source_url' => $this->generateSourceUrl($source, $sourceProductId),
+            'source_date' => ['last_updated' => now()->toDateString()],
         ];
     }
 

@@ -12,13 +12,15 @@ class ProductQuantity extends Model
     protected $fillable = [
         'product_id',
         'source_name',
-        'quantity_data',
+        'unit',
+        'quantity',
+        'availability_status',
     ];
 
     protected function casts(): array
     {
         return [
-            'quantity_data' => 'array',
+            'quantity' => 'integer',
         ];
     }
 
