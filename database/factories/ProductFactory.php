@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Manufacturer;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -42,46 +41,95 @@ class ProductFactory extends Factory
         ];
     }
 
-    public function handTool(): static
+    public function solarPanel(): static
     {
         return $this->state(function () {
-            $tools = [
-                'Phillips Head Screwdriver', 'Flathead Screwdriver', 'Torx Screwdriver',
-                'Combination Wrench', 'Socket Wrench', 'Adjustable Wrench',
-                'Claw Hammer', 'Ball Peen Hammer', 'Dead Blow Hammer',
-                'Needle Nose Pliers', 'Diagonal Cutters', 'Wire Strippers'
-            ];
+            $types = ['Monocrystalline', 'Polycrystalline', 'Thin Film', 'Bifacial', 'PERC'];
+            $brands = ['SunPower', 'Tesla', 'LG Solar', 'Canadian Solar', 'Jinko Solar'];
+            $wattages = [300, 350, 400, 450, 500, 550, 600];
 
-            $tool = $this->faker->randomElement($tools);
-            $brand = $this->faker->randomElement(['Stanley', 'Klein Tools', 'Craftsman', 'Snap-on']);
-            $model = $this->faker->bothify('??###');
+            $type = $this->faker->randomElement($types);
+            $brand = $this->faker->randomElement($brands);
+            $wattage = $this->faker->randomElement($wattages);
+            $model = $this->faker->bothify('SP-###');
 
             return [
-                'name' => "{$brand} {$tool} - Model {$model}",
-                'description' => $this->generateHandToolDescription($tool),
-                'price' => $this->faker->randomFloat(2, 5, 200),
-                // attributes will be created separately in ProductAttribute factory
+                'name' => "{$brand} {$wattage}W {$type} Solar Panel - Model {$model}",
+                'description' => $this->generateSolarPanelDescription($type, $wattage),
             ];
         });
     }
 
-    public function powerTool(): static
+    public function windTurbine(): static
     {
         return $this->state(function () {
-            $tools = [
-                'Cordless Drill', 'Impact Driver', 'Hammer Drill', 'Circular Saw',
-                'Jigsaw', 'Random Orbit Sander', 'Angle Grinder', 'Miter Saw'
-            ];
+            $types = ['Horizontal Axis', 'Vertical Axis', 'Offshore', 'Small Wind', 'Micro Wind'];
+            $brands = ['Vestas', 'Siemens Gamesa', 'GE Renewable', 'Goldwind', 'Enercon'];
+            $capacities = [1.5, 2.0, 2.5, 3.0, 4.0, 6.0, 8.0, 12.0];
 
-            $tool = $this->faker->randomElement($tools);
-            $brand = $this->faker->randomElement(['DeWalt', 'Milwaukee', 'Makita', 'Bosch']);
-            $model = $this->faker->bothify('???####');
+            $type = $this->faker->randomElement($types);
+            $brand = $this->faker->randomElement($brands);
+            $capacity = $this->faker->randomElement($capacities);
+            $model = $this->faker->bothify('WT-###');
 
             return [
-                'name' => "{$brand} {$tool} - Model {$model}",
-                'description' => $this->generatePowerToolDescription($tool),
-                'price' => $this->faker->randomFloat(2, 50, 800),
-                // attributes will be created separately in ProductAttribute factory
+                'name' => "{$brand} {$capacity}MW {$type} Wind Turbine - Model {$model}",
+                'description' => $this->generateWindTurbineDescription($type, $capacity),
+            ];
+        });
+    }
+
+    public function batteryStorage(): static
+    {
+        return $this->state(function () {
+            $types = ['Lithium-ion', 'Lead-acid', 'Flow Battery', 'Sodium-ion', 'Solid State'];
+            $brands = ['Tesla Powerwall', 'LG Chem', 'Sonnen', 'Enphase', 'BYD', 'Generac PWRcell'];
+            $capacities = [5, 7, 10, 13.5, 16, 20, 25, 30];
+
+            $type = $this->faker->randomElement($types);
+            $brand = $this->faker->randomElement($brands);
+            $capacity = $this->faker->randomElement($capacities);
+            $model = $this->faker->bothify('BS-###');
+
+            return [
+                'name' => "{$brand} {$capacity}kWh {$type} Battery Storage - Model {$model}",
+                'description' => $this->generateBatteryStorageDescription($type, $capacity),
+            ];
+        });
+    }
+
+    public function inverter(): static
+    {
+        return $this->state(function () {
+            $types = ['String Inverter', 'Power Optimizer', 'Microinverter', 'Central Inverter', 'Hybrid Inverter'];
+            $brands = ['SolarEdge', 'Enphase', 'SMA', 'Fronius', 'Huawei', 'ABB'];
+            $capacities = [3, 5, 7.5, 10, 15, 20, 25, 30, 50, 100];
+
+            $type = $this->faker->randomElement($types);
+            $brand = $this->faker->randomElement($brands);
+            $capacity = $this->faker->randomElement($capacities);
+            $model = $this->faker->bothify('INV-###');
+
+            return [
+                'name' => "{$brand} {$capacity}kW {$type} - Model {$model}",
+                'description' => $this->generateInverterDescription($type, $capacity),
+            ];
+        });
+    }
+
+    public function energyMonitoring(): static
+    {
+        return $this->state(function () {
+            $types = ['Smart Meter', 'Energy Monitor', 'Power Analyzer', 'Load Monitor', 'Grid Tie Monitor'];
+            $brands = ['Sense', 'Emporia Vue', 'Schneider Electric', 'Siemens', 'ABB', 'Fluke'];
+
+            $type = $this->faker->randomElement($types);
+            $brand = $this->faker->randomElement($brands);
+            $model = $this->faker->bothify('EM-###');
+
+            return [
+                'name' => "{$brand} {$type} - Model {$model}",
+                'description' => $this->generateEnergyMonitoringDescription($type),
             ];
         });
     }
@@ -91,38 +139,50 @@ class ProductFactory extends Factory
         return $this->state(function () {
             $amperages = ['5A', '10A', '15A', '20A', '25A', '30A', '40A', '50A'];
             $voltages = ['125V', '250V', '600V'];
-            $types = ['fast_blow', 'slow_blow', 'time_delay'];
-            $mountings = ['panel_mount', 'fuse_block', 'inline'];
+            $types = ['Fast-Acting', 'Time-Delay', 'Current-Limiting'];
 
             $amperage = $this->faker->randomElement($amperages);
             $voltage = $this->faker->randomElement($voltages);
             $type = $this->faker->randomElement($types);
+            $brand = $this->faker->randomElement(['Bussmann', 'Littelfuse', 'Ferraz Shawmut', 'Eaton']);
 
             return [
-                'name' => "Electrical Fuse {$amperage} {$voltage} - {$type}",
+                'name' => "{$brand} {$amperage} {$voltage} {$type} Fuse",
                 'description' => $this->generateFuseDescription($amperage, $voltage, $type),
-                'price' => $this->faker->randomFloat(2, 1, 50),
-                // attributes will be created separately in ProductAttribute factory
             ];
         });
     }
 
-    public function safetyEquipment(): static
+    public function screwdriver(): static
     {
         return $this->state(function () {
-            $equipment = [
-                'Safety Glasses', 'Work Gloves', 'Hard Hat', 'Knee Pads',
-                'Safety Goggles', 'Cut Resistant Gloves', 'Face Shield', 'Hearing Protection'
-            ];
+            $types = ['Phillips Head', 'Flathead', 'Torx', 'Robertson', 'Precision'];
+            $brands = ['Stanley', 'Klein Tools', 'Craftsman', 'Snap-on', 'Wera'];
 
-            $item = $this->faker->randomElement($equipment);
-            $brand = $this->faker->randomElement(['3M', 'Honeywell', 'MSA', 'Pyramex']);
+            $type = $this->faker->randomElement($types);
+            $brand = $this->faker->randomElement($brands);
+            $size = $this->faker->randomElement(['#0', '#1', '#2', '#3', '1/4"', '3/16"']);
 
             return [
-                'name' => "{$brand} {$item}",
-                'description' => $this->generateSafetyDescription($item),
-                'price' => $this->faker->randomFloat(2, 10, 300),
-                // attributes will be created separately in ProductAttribute factory
+                'name' => "{$brand} {$type} Screwdriver {$size}",
+                'description' => $this->generateScrewdriverDescription($type),
+            ];
+        });
+    }
+
+    public function saw(): static
+    {
+        return $this->state(function () {
+            $types = ['Circular Saw', 'Jigsaw', 'Reciprocating Saw', 'Miter Saw', 'Band Saw'];
+            $brands = ['DeWalt', 'Milwaukee', 'Makita', 'Bosch', 'Ridgid'];
+
+            $type = $this->faker->randomElement($types);
+            $brand = $this->faker->randomElement($brands);
+            $model = $this->faker->bothify('###??');
+
+            return [
+                'name' => "{$brand} {$type} - Model {$model}",
+                'description' => $this->generateSawDescription($type),
             ];
         });
     }
@@ -133,8 +193,8 @@ class ProductFactory extends Factory
         $descriptors = ['Professional', 'Heavy Duty', 'Premium', 'Industrial', 'Commercial'];
         $tools = ['Tool', 'Component', 'Equipment', 'Device', 'Instrument'];
 
-        return $this->faker->randomElement($brands) . ' ' .
-               $this->faker->randomElement($descriptors) . ' ' .
+        return $this->faker->randomElement($brands).' '.
+               $this->faker->randomElement($descriptors).' '.
                $this->faker->randomElement($tools);
     }
 
@@ -145,126 +205,158 @@ class ProductFactory extends Factory
 
     private function generateProductTitle(string $name): string
     {
-        return $name . ' - ' . $this->faker->words(2, true);
+        return $name.' - '.$this->faker->words(2, true);
     }
 
     private function generateBreadcrumb(string $categoryName, string $productName): string
     {
-        return "Home > {$categoryName} > " . Str::limit($productName, 30);
+        return "Home > {$categoryName} > ".Str::limit($productName, 30);
     }
 
     // Image generation methods moved to ProductImageFactory
 
-    private function generateHandToolAttributes(string $tool): array
+    private function generateSolarPanelAttributes(string $type, int $wattage): array
     {
-        $baseAttributes = [
-            'material' => $this->faker->randomElement(['steel', 'chrome_vanadium', 'carbon_steel']),
-            'finish' => $this->faker->randomElement(['chrome', 'black_oxide', 'zinc_plated']),
-            'warranty' => $this->faker->randomElement(['lifetime', '1_year', '5_years']),
+        return [
+            'technology' => $type,
+            'power_output' => $wattage.'W',
+            'efficiency' => $this->faker->randomFloat(1, 18.5, 22.8).'%',
+            'voltage_max_power' => $this->faker->randomFloat(1, 30, 40).'V',
+            'current_max_power' => $this->faker->randomFloat(2, 8, 12).'A',
+            'open_circuit_voltage' => $this->faker->randomFloat(1, 35, 48).'V',
+            'short_circuit_current' => $this->faker->randomFloat(2, 9, 13).'A',
+            'operating_temperature' => '-40°C to +85°C',
+            'dimensions' => $this->faker->randomElement(['2000x1000x35mm', '1950x992x40mm', '2108x1048x35mm']),
+            'weight' => $this->faker->randomFloat(1, 18, 25).'kg',
+            'warranty' => $this->faker->randomElement(['25 years', '20 years', '15 years']),
+            'certification' => 'IEC 61215, IEC 61730, UL 1703',
+            'frame_material' => 'Anodized Aluminum',
+            'junction_box' => 'IP67 Rated',
         ];
-
-        if (str_contains(strtolower($tool), 'screwdriver')) {
-            return array_merge($baseAttributes, [
-                'handle_type' => $this->faker->randomElement(['rubber', 'plastic', 'cushion_grip']),
-                'length' => $this->faker->randomElement(['4 inches', '6 inches', '8 inches', '10 inches']),
-                'tip_size' => $this->faker->randomElement(['#0', '#1', '#2', '#3', '1/4"', '3/16"']),
-                'magnetic_tip' => $this->faker->boolean(),
-            ]);
-        }
-
-        if (str_contains(strtolower($tool), 'wrench')) {
-            return array_merge($baseAttributes, [
-                'size' => $this->faker->randomElement(['8mm', '10mm', '12mm', '1/4"', '5/16"', '3/8"']),
-                'type' => $this->faker->randomElement(['combination', 'open_end', 'box_end']),
-                'length' => $this->faker->randomElement(['6 inches', '8 inches', '10 inches']),
-                'weight' => $this->faker->randomFloat(2, 0.2, 2.0) . ' lbs',
-            ]);
-        }
-
-        return array_merge($baseAttributes, [
-            'length' => $this->faker->randomElement(['6 inches', '8 inches', '10 inches', '12 inches']),
-            'weight' => $this->faker->randomFloat(2, 0.1, 3.0) . ' lbs',
-        ]);
     }
 
-    private function generatePowerToolAttributes(string $tool): array
+    private function generateWindTurbineAttributes(string $type, float $capacity): array
     {
-        $baseAttributes = [
-            'voltage' => $this->faker->randomElement(['12V', '18V', '20V', '40V']),
-            'battery_type' => $this->faker->randomElement(['Li-ion', 'NiMH', 'NiCad']),
-            'warranty' => $this->faker->randomElement(['1_year', '3_years', '5_years']),
-            'weight' => $this->faker->randomFloat(2, 2.0, 15.0) . ' lbs',
+        return [
+            'turbine_type' => $type,
+            'rated_power' => $capacity.'MW',
+            'rotor_diameter' => $this->faker->randomFloat(1, 80, 150).'m',
+            'hub_height' => $this->faker->randomFloat(0, 80, 120).'m',
+            'cut_in_wind_speed' => $this->faker->randomFloat(1, 3, 4).' m/s',
+            'rated_wind_speed' => $this->faker->randomFloat(1, 12, 15).' m/s',
+            'cut_out_wind_speed' => $this->faker->randomFloat(0, 20, 25).' m/s',
+            'number_of_blades' => $this->faker->randomElement([2, 3]),
+            'gearbox_type' => $this->faker->randomElement(['Planetary', 'Helical', 'Direct Drive']),
+            'generator_type' => $this->faker->randomElement(['DFIG', 'PMSG', 'SCIG']),
+            'control_system' => 'Pitch Control',
+            'grid_connection' => $this->faker->randomElement(['690V', '1000V', '1500V']),
+            'certification' => 'IEC 61400-1, IEC 61400-22',
+            'design_life' => '20 years',
+            'operating_temperature' => '-30°C to +50°C',
         ];
-
-        if (str_contains(strtolower($tool), 'drill')) {
-            return array_merge($baseAttributes, [
-                'chuck_size' => $this->faker->randomElement(['3/8 inch', '1/2 inch', '5/8 inch']),
-                'torque' => $this->faker->numberBetween(200, 1000) . ' in-lbs',
-                'speed_settings' => $this->faker->randomElement(['2-speed', 'variable', 'single_speed']),
-                'led_light' => $this->faker->boolean(80),
-                'belt_clip' => $this->faker->boolean(60),
-            ]);
-        }
-
-        if (str_contains(strtolower($tool), 'saw')) {
-            return array_merge($baseAttributes, [
-                'blade_diameter' => $this->faker->randomElement(['6.5 inches', '7.25 inches', '10 inches']),
-                'cut_capacity' => $this->faker->randomElement(['2x4 at 90°', '2x8 at 45°', '4x4 at 90°']),
-                'bevel_capacity' => $this->faker->randomElement(['45°', '50°', '56°']),
-                'laser_guide' => $this->faker->boolean(70),
-            ]);
-        }
-
-        return $baseAttributes;
     }
 
-    private function generateSafetyAttributes(string $equipment): array
+    private function generateBatteryStorageAttributes(string $type, float $capacity): array
     {
-        $baseAttributes = [
-            'color' => $this->faker->randomElement(['yellow', 'orange', 'white', 'clear', 'blue']),
-            'size' => $this->faker->randomElement(['S', 'M', 'L', 'XL', 'Universal']),
-            'certification' => $this->faker->randomElement(['ANSI Z87.1', 'CE', 'OSHA Compliant']),
+        return [
+            'battery_type' => $type,
+            'usable_capacity' => $capacity.'kWh',
+            'total_capacity' => ($capacity * 1.1).'kWh',
+            'voltage_nominal' => $this->faker->randomElement(['48V', '400V', '800V']),
+            'max_charge_power' => $this->faker->randomFloat(1, 3, 10).'kW',
+            'max_discharge_power' => $this->faker->randomFloat(1, 3, 10).'kW',
+            'round_trip_efficiency' => $this->faker->randomFloat(1, 90, 96).'%',
+            'depth_of_discharge' => $this->faker->randomElement(['80%', '90%', '95%', '100%']),
+            'cycle_life' => $this->faker->randomElement(['6000', '8000', '10000']),
+            'operating_temperature' => '-10°C to +50°C',
+            'dimensions' => $this->faker->randomElement(['1150x755x155mm', '1200x800x200mm']),
+            'weight' => $this->faker->randomFloat(1, 100, 300).'kg',
+            'warranty' => $this->faker->randomElement(['10 years', '15 years', '20 years']),
+            'protection_rating' => 'IP65',
+            'communication' => 'Ethernet, Wi-Fi, CAN Bus',
         ];
-
-        if (str_contains(strtolower($equipment), 'glove')) {
-            return array_merge($baseAttributes, [
-                'material' => $this->faker->randomElement(['leather', 'nitrile', 'latex', 'cut_resistant']),
-                'grip_type' => $this->faker->randomElement(['textured', 'smooth', 'dotted']),
-                'cut_level' => $this->faker->randomElement(['A1', 'A2', 'A3', 'A4', 'A5']),
-                'thickness' => $this->faker->randomElement(['3 mil', '5 mil', '8 mil', '15 mil']),
-            ]);
-        }
-
-        if (str_contains(strtolower($equipment), 'glasses') || str_contains(strtolower($equipment), 'goggles')) {
-            return array_merge($baseAttributes, [
-                'lens_type' => $this->faker->randomElement(['clear', 'tinted', 'anti-fog', 'anti-scratch']),
-                'frame_material' => $this->faker->randomElement(['polycarbonate', 'nylon', 'metal']),
-                'uv_protection' => $this->faker->boolean(90),
-                'wrap_around' => $this->faker->boolean(60),
-            ]);
-        }
-
-        return $baseAttributes;
     }
 
-    private function generateHandToolDescription(string $tool): string
+    private function generateInverterAttributes(string $type, float $capacity): array
     {
-        return "Professional grade {$tool} designed for heavy-duty use. Features ergonomic handle design for comfort during extended use. Made from high-quality materials for durability and long service life. Perfect for professional tradespeople and serious DIY enthusiasts.";
+        return [
+            'inverter_type' => $type,
+            'ac_power_rating' => $capacity.'kW',
+            'dc_input_voltage' => $this->faker->randomElement(['600V', '1000V', '1500V']),
+            'ac_output_voltage' => $this->faker->randomElement(['230V', '400V', '480V']),
+            'efficiency' => $this->faker->randomFloat(1, 95, 99).'%',
+            'maximum_dc_input' => ($capacity * 1.3).'kW',
+            'mppt_trackers' => $this->faker->randomElement([1, 2, 3, 4]),
+            'grid_connection' => 'Three-phase',
+            'communication' => 'Ethernet, Wi-Fi, RS485',
+            'monitoring' => 'Web Portal, Mobile App',
+            'protection_rating' => 'IP65',
+            'operating_temperature' => '-25°C to +60°C',
+            'dimensions' => $this->faker->randomElement(['665x445x244mm', '800x600x300mm']),
+            'weight' => $this->faker->randomFloat(1, 25, 80).'kg',
+            'certification' => 'IEC 62109, UL 1741',
+            'warranty' => $this->faker->randomElement(['10 years', '15 years', '20 years']),
+        ];
     }
 
-    private function generatePowerToolDescription(string $tool): string
+    private function generateEnergyMonitoringAttributes(string $type): array
     {
-        return "High-performance {$tool} engineered for professional applications. Features brushless motor technology for extended runtime and durability. Includes advanced safety features and ergonomic design for user comfort. Ideal for construction, electrical, and industrial applications.";
+        return [
+            'device_type' => $type,
+            'measurement_accuracy' => $this->faker->randomElement(['±0.5%', '±1%', '±2%']),
+            'sampling_rate' => $this->faker->randomElement(['1 Hz', '10 Hz', '60 Hz']),
+            'voltage_range' => '80V-600V',
+            'current_range' => '5A-6000A',
+            'power_measurement' => 'Active, Reactive, Apparent',
+            'communication' => $this->faker->randomElement(['Wi-Fi', 'Ethernet', 'Zigbee', 'LoRa']),
+            'display' => $this->faker->randomElement(['LCD', 'LED', 'Mobile App Only']),
+            'data_logging' => 'Cloud Storage',
+            'operating_temperature' => '-20°C to +70°C',
+            'protection_rating' => 'IP54',
+            'certification' => 'CE, FCC, UL',
+            'warranty' => $this->faker->randomElement(['2 years', '3 years', '5 years']),
+            'installation' => $this->faker->randomElement(['DIN Rail', 'Wall Mount', 'Panel Mount']),
+        ];
+    }
+
+    private function generateSolarPanelDescription(string $type, int $wattage): string
+    {
+        return "High-efficiency {$wattage}W {$type} solar panel designed for residential and commercial installations. Features advanced cell technology with superior light absorption and excellent low-light performance. Weather-resistant construction ensures reliable operation in various environmental conditions. Perfect for grid-tied and off-grid solar energy systems.";
+    }
+
+    private function generateWindTurbineDescription(string $type, float $capacity): string
+    {
+        return "Advanced {$capacity}MW {$type} wind turbine engineered for optimal energy production. Features state-of-the-art aerodynamic design and intelligent control systems for maximum efficiency. Built to withstand harsh weather conditions with minimal maintenance requirements. Ideal for utility-scale and commercial wind energy projects.";
+    }
+
+    private function generateBatteryStorageDescription(string $type, float $capacity): string
+    {
+        return "Advanced {$capacity}kWh {$type} battery storage system designed for residential and commercial energy storage applications. Features intelligent energy management with seamless grid integration. High cycle life and fast charging capabilities ensure optimal performance and longevity. Perfect for solar energy storage and backup power solutions.";
+    }
+
+    private function generateInverterDescription(string $type, float $capacity): string
+    {
+        return "High-efficiency {$capacity}kW {$type} designed for solar PV installations. Features advanced MPPT technology for maximum energy harvest and grid-tie capabilities. Intelligent monitoring and communication systems provide real-time performance data. Built for reliability with comprehensive protection features and long service life.";
+    }
+
+    private function generateEnergyMonitoringDescription(string $type): string
+    {
+        return "Professional {$type} designed for comprehensive energy monitoring and management. Features high-accuracy measurement capabilities with real-time data logging and analysis. Advanced communication options enable remote monitoring and integration with energy management systems. Essential for energy efficiency optimization and demand response programs.";
     }
 
     private function generateFuseDescription(string $amperage, string $voltage, string $type): string
     {
-        return "High-quality electrical fuse rated at {$amperage} and {$voltage}. {$type} design provides reliable circuit protection. UL listed for safety and compliance. Suitable for industrial, commercial, and residential electrical applications. Ensures proper overcurrent protection.";
+        return "High-quality {$type} electrical fuse rated at {$amperage} and {$voltage}. Designed for reliable circuit protection with superior interrupting capacity. UL listed for safety and compliance. Suitable for industrial, commercial, and residential electrical applications. Ensures proper overcurrent protection and electrical safety.";
     }
 
-    private function generateSafetyDescription(string $equipment): string
+    private function generateScrewdriverDescription(string $type): string
     {
-        return "Professional {$equipment} designed to meet or exceed safety standards. Provides excellent protection while maintaining comfort and visibility. Durable construction ensures long-lasting performance in demanding work environments. Essential for workplace safety compliance.";
+        return "Professional grade {$type} screwdriver designed for heavy-duty use. Features ergonomic handle design for comfort during extended use. Made from high-quality chrome vanadium steel for durability and long service life. Perfect for professional tradespeople and serious DIY enthusiasts. Precision-machined tips ensure proper fit and reduce cam-out.";
+    }
+
+    private function generateSawDescription(string $type): string
+    {
+        return "High-performance {$type} engineered for professional applications. Features powerful motor and precision-engineered components for accurate cuts. Includes advanced safety features and ergonomic design for user comfort. Ideal for construction, woodworking, and industrial applications. Built to withstand demanding job site conditions.";
     }
 
     public function withRelationships($categoryId = null, $manufacturerId = null): static
