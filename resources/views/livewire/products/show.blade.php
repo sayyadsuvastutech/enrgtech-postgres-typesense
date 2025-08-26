@@ -91,7 +91,7 @@ class extends Component {
                             @foreach($product->images as $index => $image)
                                 <button class="relative h-24 bg-white rounded-md flex items-center justify-center text-sm font-medium uppercase text-gray-900 cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring focus:ring-offset-4 focus:ring-blue-500">
                                     <span class="sr-only">{{ $product->name }} image {{ $index + 1 }}</span>
-                                    <img src="{{ $image->images_data['url'] ?? '/images/place_holder.svg' }}" alt="{{ $product->name }}" class="w-full h-full object-center object-cover rounded-md">
+                                    <img src="{{ $image->images['url'] ?? '/images/place_holder.svg' }}" alt="{{ $product->name }}" class="w-full h-full object-center object-cover rounded-md">
                                 </button>
                             @endforeach
                         </div>
@@ -296,22 +296,22 @@ class extends Component {
                                         <h4 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">
                                             Source: {{ $priceSource->source_name }}
                                         </h4>
-                                        @if(isset($priceSource->pricing_data['currency']))
-                                            <span class="text-xs text-gray-500">{{ $priceSource->pricing_data['currency'] }}</span>
+                                        @if(!empty($priceSource->currency))
+                                            <span class="text-xs text-gray-500">{{ $priceSource->currency }}</span>
                                         @endif
                                     </div>
                                     
-                                    @if(isset($priceSource->pricing_data['ranges']) && is_array($priceSource->pricing_data['ranges']))
+                                    @if(is_array($priceSource->pricing_ranges) && count($priceSource->pricing_ranges) > 0)
                                         <div class="bg-yellow-50 rounded-lg p-3">
                                             <h5 class="text-sm font-medium text-yellow-800 mb-2">Quantity-based Pricing</h5>
                                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                                @foreach($priceSource->pricing_data['ranges'] as $range)
+                                                @foreach($priceSource->pricing_ranges as $range)
                                                     <div class="bg-white rounded p-2 border border-yellow-200">
                                                         <div class="text-xs text-yellow-700">
                                                             {{ $range['from'] }}{{ isset($range['to']) ? ' - ' . $range['to'] : '+' }} units
                                                         </div>
                                                         <div class="text-sm font-semibold text-yellow-900">
-                                                            ${{ number_format($range['price'], 2) }}
+                                                            {{ ($range['currency'] ?? $priceSource->currency ?? 'USD') }} ${{ number_format($range['price'], 2) }}
                                                         </div>
                                                     </div>
                                                 @endforeach
@@ -320,7 +320,7 @@ class extends Component {
                                     @else
                                         <div class="bg-blue-50 rounded-lg p-3">
                                             <div class="text-lg font-bold text-blue-900">
-                                                ${{ number_format($priceSource->pricing_data['price'] ?? $priceSource->pricing_data['unit_price'] ?? 0, 2) }}
+                                                {{ $priceSource->currency ?? 'USD' }} ${{ number_format($priceSource->pricing_ranges[0]['price'] ?? 0, 2) }}
                                             </div>
                                         </div>
                                     @endif
@@ -341,32 +341,20 @@ class extends Component {
                                         {{ $quantitySource->source_name }}
                                     </h4>
                                     <div class="space-y-2">
-                                        @if(isset($quantitySource->quantity_data['quantity']))
-                                            <div class="flex justify-between">
-                                                <span class="text-sm text-gray-600">Quantity:</span>
-                                                <span class="text-sm font-semibold text-gray-900">{{ number_format($quantitySource->quantity_data['quantity']) }}</span>
-                                            </div>
-                                        @endif
-                                        @if(isset($quantitySource->quantity_data['unit']))
-                                            <div class="flex justify-between">
-                                                <span class="text-sm text-gray-600">Unit:</span>
-                                                <span class="text-sm font-semibold text-gray-900">{{ $quantitySource->quantity_data['unit'] }}</span>
-                                            </div>
-                                        @endif
-                                        @if(isset($quantitySource->quantity_data['availability_status']))
-                                            <div class="flex justify-between">
-                                                <span class="text-sm text-gray-600">Status:</span>
-                                                <span class="text-sm font-semibold {{ $quantitySource->quantity_data['availability_status'] === 'in_stock' ? 'text-green-600' : 'text-yellow-600' }}">
-                                                    {{ ucwords(str_replace('_', ' ', $quantitySource->quantity_data['availability_status'])) }}
-                                                </span>
-                                            </div>
-                                        @endif
-                                        @if(isset($quantitySource->quantity_data['last_updated']))
-                                            <div class="flex justify-between">
-                                                <span class="text-sm text-gray-600">Updated:</span>
-                                                <span class="text-xs text-gray-500">{{ $quantitySource->quantity_data['last_updated'] }}</span>
-                                            </div>
-                                        @endif
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Quantity:</span>
+                                            <span class="text-sm font-semibold text-gray-900">{{ number_format($quantitySource->quantity) }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Unit:</span>
+                                            <span class="text-sm font-semibold text-gray-900">{{ $quantitySource->unit }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-sm text-gray-600">Status:</span>
+                                            <span class="text-sm font-semibold {{ $quantitySource->availability_status === 'in_stock' ? 'text-green-600' : 'text-yellow-600' }}">
+                                                {{ ucwords(str_replace('_', ' ', $quantitySource->availability_status)) }}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             @endforeach
