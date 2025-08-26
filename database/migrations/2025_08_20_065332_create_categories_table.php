@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('categories', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->unique();
+            $table->string('name');
             $table->string('slug');
             $table->text('description')->nullable();
             $table->string('image')->nullable();
@@ -36,7 +36,7 @@ return new class extends Migration
             $table->index('name'); // For name searches
             $table->index('status_id'); // For status filtering
             $table->index('products_count'); // For sorting by popularity
-            
+
             // Composite indexes for complex queries
             $table->index(['parent_category', 'is_main']); // Main categories under parent
             $table->index(['parent_category', 'name']); // Ordered children

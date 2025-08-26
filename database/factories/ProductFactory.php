@@ -16,9 +16,6 @@ class ProductFactory extends Factory
         $productNumber = $this->generateProductNumber();
         $title = $this->generateProductTitle($name);
 
-        $category = Category::factory()->create();
-        $manufacturer = Manufacturer::factory()->create();
-
         return [
             'name' => $name,
             'title' => $title,
@@ -27,9 +24,7 @@ class ProductFactory extends Factory
             'manufacturer_product_number' => $this->faker->optional()->bothify('MPN-####'),
             'manufacturer_product_slug' => $this->faker->optional()->slug(),
             'description' => $this->faker->paragraphs(3, true),
-            'category_id' => $category->id,
-            'manufacturer_id' => $manufacturer->id,
-            'breadcrumb' => $this->generateBreadcrumb($category->name, $name),
+            'breadcrumb' => $this->generateBreadcrumb('Category', $name),
             'meta_title' => $this->faker->optional()->sentence(6),
             'meta_description' => $this->faker->optional()->sentence(12),
             'is_rohs_compliant' => $this->faker->boolean(70),
@@ -44,8 +39,6 @@ class ProductFactory extends Factory
             'is_updated' => $this->faker->boolean(30),
             'created_by' => $this->faker->optional()->numberBetween(1, 100),
             'updated_by' => $this->faker->optional()->numberBetween(1, 100),
-            'category_name' => $category->name,
-            'manufacturer_name' => $manufacturer->name,
         ];
     }
 
@@ -276,13 +269,14 @@ class ProductFactory extends Factory
 
     public function withRelationships($categoryId = null, $manufacturerId = null): static
     {
-        return $this->state(function () use ($categoryId, $manufacturerId) {
+        return $this->state(function (array $attributes) use ($categoryId, $manufacturerId) {
             $state = [];
 
             if ($categoryId !== null) {
                 $category = Category::find($categoryId);
                 $state['category_id'] = $categoryId;
                 $state['category_name'] = $category->name;
+                $state['breadcrumb'] = $this->generateBreadcrumb($category->name, $attributes['name']);
             }
 
             if ($manufacturerId !== null) {

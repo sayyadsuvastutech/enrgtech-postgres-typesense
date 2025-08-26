@@ -32,19 +32,19 @@ class DatabaseSeeder extends Seeder
         // Create categories (flat structure now)
         $this->command->info('📂 Creating categories...');
         $categories = $this->createCategories();
-        
+
         // Create manufacturers
         $this->command->info('🏭 Creating manufacturers...');
         $manufacturers = $this->createManufacturers();
-        
+
         // Create brands (now tied to manufacturers)
         $this->command->info('🏷️ Creating brands...');
         $brands = $this->createBrands($manufacturers);
-        
+
         // Create products with new structure
         $this->command->info('🔧 Creating products...');
         $products = $this->createProducts($categories, $manufacturers);
-        
+
         // Create product-related data
         $this->command->info('📊 Creating product sources, attributes, pricing, and media...');
         $this->createProductData($products);
@@ -58,7 +58,7 @@ class DatabaseSeeder extends Seeder
         // Create main categories first
         $this->command->info('Creating main categories...');
         $mainCategories = collect();
-        
+
         $mainCategoryData = [
             'Electronics' => 'Electronic components and semiconductors',
             'Power Management' => 'Power supplies, regulators, and management ICs',
@@ -78,7 +78,7 @@ class DatabaseSeeder extends Seeder
 
         // Create subcategories for each main category
         $this->command->info('Creating subcategories...');
-        $allCategories = collect($mainCategories);
+        $allCategories = $mainCategories;
 
         $subcategoryMap = [
             'Electronics' => ['Resistors', 'Capacitors', 'Inductors', 'Diodes', 'Transistors'],
@@ -123,7 +123,7 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        return $allCategories;
+        return Category::whereIn('id', $allCategories->pluck('id'))->get();
     }
 
     private function createManufacturers(): \Illuminate\Database\Eloquent\Collection
@@ -140,12 +140,20 @@ class DatabaseSeeder extends Seeder
 
     private function createProducts(\Illuminate\Database\Eloquent\Collection $categories, \Illuminate\Database\Eloquent\Collection $manufacturers): \Illuminate\Database\Eloquent\Collection
     {
-        return Product::factory()->count(1000)->create()->each(function ($product) use ($categories, $manufacturers) {
-            $product->update([
-                'category_id' => $categories->random()->id,
-                'manufacturer_id' => $manufacturers->random()->id,
-            ]);
-        });
+        $products = collect();
+        
+        for ($i = 0; $i < 1000; $i++) {
+            $category = $categories->random();
+            $manufacturer = $manufacturers->random();
+            
+            $product = Product::factory()
+                ->withRelationships($category->id, $manufacturer->id)
+                ->create();
+                
+            $products->push($product);
+        }
+        
+        return Product::whereIn('id', $products->pluck('id'))->get();
     }
 
     private function createProductData(\Illuminate\Database\Eloquent\Collection $products): void

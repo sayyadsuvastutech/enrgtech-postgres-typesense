@@ -27,12 +27,13 @@ return new class extends Migration
             // Foreign keys
             $table->foreignId('category_id')->constrained()->onDelete('cascade');
             $table->foreignId('manufacturer_id')->constrained()->onDelete('cascade');
+            $table->foreignId('brand_id')->nullable()->constrained()->onDelete('set null');
 
             // Additional fields
             $table->string('breadcrumb')->nullable();
             $table->string('meta_title')->nullable();
             $table->string('meta_description')->nullable();
-            
+
             // Denormalized fields for performance (synced via triggers)
             $table->string('category_name')->nullable();
             $table->string('manufacturer_name')->nullable();

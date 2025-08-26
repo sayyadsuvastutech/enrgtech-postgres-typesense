@@ -23,6 +23,7 @@ class Product extends Model
         'description',
         'category_id',
         'manufacturer_id',
+        'brand_id',
         'breadcrumb',
         'meta_title',
         'meta_description',
@@ -102,6 +103,11 @@ class Product extends Model
     public function manufacturer(): BelongsTo
     {
         return $this->belongsTo(Manufacturer::class);
+    }
+
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
     }
 
     public function scopeActive(Builder $query): Builder
