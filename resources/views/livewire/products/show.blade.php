@@ -7,6 +7,7 @@ use App\Models\Product;
 new #[Layout('components.layouts.public')]
 class extends Component {
     public Product $product;
+    public string $searchTerm = '';
 
     public function mount(Product $product): void
     {
@@ -15,8 +16,34 @@ class extends Component {
             abort(404);
         }
         
+        // Get search term from query parameter if available
+        $this->searchTerm = request('search', '');
+        
         // Load relationships for better performance
-        $this->product = $product->load(['category', 'brand', 'manufacturer']);
+        $this->product = $product->load(['category', 'brand', 'manufacturer', 'prices', 'quantities', 'attributes', 'images']);
+    }
+
+    public function highlightSearchTerms(string $text): string
+    {
+        if (empty($this->searchTerm)) {
+            return $text;
+        }
+        
+        $terms = explode(' ', $this->searchTerm);
+        $terms = array_filter($terms, fn($term) => strlen(trim($term)) >= 2);
+        
+        foreach ($terms as $term) {
+            $term = trim($term);
+            if (strlen($term) >= 2) {
+                $text = preg_replace(
+                    '/(' . preg_quote($term, '/') . ')/i',
+                    '<mark class="bg-yellow-200 text-yellow-900 font-semibold px-1 rounded">$1</mark>',
+                    $text
+                );
+            }
+        }
+        
+        return $text;
     }
 }; ?>
 
@@ -58,13 +85,13 @@ class extends Component {
             <!-- Image gallery -->
             <div class="flex flex-col-reverse">
                 <!-- Image selector -->
-                @if($product->images && count($product->images) > 1)
+                @if($product->images && $product->images->count() > 1)
                     <div class="hidden mt-6 w-full max-w-2xl mx-auto sm:block lg:max-w-none">
                         <div class="grid grid-cols-4 gap-6">
                             @foreach($product->images as $index => $image)
                                 <button class="relative h-24 bg-white rounded-md flex items-center justify-center text-sm font-medium uppercase text-gray-900 cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring focus:ring-offset-4 focus:ring-blue-500">
                                     <span class="sr-only">{{ $product->name }} image {{ $index + 1 }}</span>
-                                    <img src="/images/place_holder.svg" alt="{{ $product->name }}" class="w-full h-full object-center object-cover rounded-md">
+                                    <img src="{{ $image->images_data['url'] ?? '/images/place_holder.svg' }}" alt="{{ $product->name }}" class="w-full h-full object-center object-cover rounded-md">
                                 </button>
                             @endforeach
                         </div>
@@ -73,7 +100,7 @@ class extends Component {
 
                 <!-- Main image -->
                 <div class="w-full aspect-square">
-                    <img src="/images/place_holder.svg" alt="{{ $product->name }}" class="w-full h-full object-center object-cover sm:rounded-lg">
+                    <img src="{{ $product->primary_image ?? '/images/place_holder.svg' }}" alt="{{ $product->name }}" class="w-full h-full object-center object-cover sm:rounded-lg">
                 </div>
             </div>
 
@@ -141,26 +168,208 @@ class extends Component {
                     <div class="mb-8">
                         <h3 class="text-lg font-medium text-gray-900 mb-3">Description</h3>
                         <div class="prose prose-sm text-gray-600">
-                            {!! nl2br(e($product->description)) !!}
+                            {!! nl2br($this->highlightSearchTerms(e($product->description))) !!}
                         </div>
                     </div>
                 @endif
 
-                <!-- Product Attributes -->
-                @if($product->attributes && is_array($product->attributes) && count($product->attributes) > 0)
+                <!-- Search Context (if coming from search) -->
+                @if($searchTerm)
                     <div class="mb-8">
-                        <h3 class="text-lg font-medium text-gray-900 mb-3">Specifications</h3>
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            <dl class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-                                @foreach($product->attributes as $key => $value)
-                                    @if(!empty($value))
-                                        <div>
-                                            <dt class="text-sm font-medium text-gray-900 capitalize">{{ str_replace('_', ' ', $key) }}</dt>
-                                            <dd class="text-sm text-gray-600">{{ is_array($value) ? implode(', ', $value) : $value }}</dd>
+                        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <svg class="w-5 h-5 text-amber-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path>
+                                </svg>
+                                <h3 class="text-lg font-medium text-amber-900">Search Match for: "{{ $searchTerm }}"</h3>
+                            </div>
+                            <p class="text-sm text-amber-800">
+                                This product was found matching your search terms. Highlighted sections below show where matches were found.
+                            </p>
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Search Relevance Information -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-medium text-gray-900 mb-3">Product Information</h3>
+                    <div class="bg-blue-50 rounded-lg p-4 space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <dt class="text-sm font-medium text-blue-900">Product Name</dt>
+                                <dd class="text-sm text-blue-800 font-semibold">{!! $this->highlightSearchTerms($product->name) !!}</dd>
+                            </div>
+                            @if($product->title && $product->title !== $product->name)
+                                <div>
+                                    <dt class="text-sm font-medium text-blue-900">Full Title</dt>
+                                    <dd class="text-sm text-blue-800">{!! $this->highlightSearchTerms($product->title) !!}</dd>
+                                </div>
+                            @endif
+                            <div>
+                                <dt class="text-sm font-medium text-blue-900">Product Number</dt>
+                                <dd class="text-sm text-blue-800 font-mono">{!! $this->highlightSearchTerms($product->product_number) !!}</dd>
+                            </div>
+                            @if($product->manufacturer_product_number)
+                                <div>
+                                    <dt class="text-sm font-medium text-blue-900">Manufacturer Part Number</dt>
+                                    <dd class="text-sm text-blue-800 font-mono">{!! $this->highlightSearchTerms($product->manufacturer_product_number) !!}</dd>
+                                </div>
+                            @endif
+                        </div>
+                        @if($product->breadcrumb)
+                            <div>
+                                <dt class="text-sm font-medium text-blue-900">Product Category Path</dt>
+                                <dd class="text-sm text-blue-800">{!! $this->highlightSearchTerms($product->breadcrumb) !!}</dd>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Detailed Attributes by Source -->
+                @if($product->attributes && $product->attributes->count() > 0)
+                    <div class="mb-8">
+                        <h3 class="text-lg font-medium text-gray-900 mb-3">Detailed Specifications by Source</h3>
+                        <div class="space-y-6">
+                            @foreach($product->attributes as $attributeSource)
+                                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                                    <!-- Source Header -->
+                                    <div class="bg-gray-100 px-4 py-3 border-b border-gray-200">
+                                        <h4 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                                            Source: {{ $attributeSource->source_name }}
+                                        </h4>
+                                    </div>
+                                    
+                                    <div class="p-4">
+                                        <!-- Filter Attributes (Search Relevant) -->
+                                        @if(isset($attributeSource->attributes_data['filter_attributes']) && count($attributeSource->attributes_data['filter_attributes']) > 0)
+                                            <div class="mb-6">
+                                                <h5 class="text-sm font-medium text-green-800 mb-3 flex items-center">
+                                                    <svg class="w-4 h-4 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path>
+                                                    </svg>
+                                                    Search-Relevant Attributes
+                                                </h5>
+                                                <div class="bg-green-50 rounded-lg p-3">
+                                                    <dl class="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                                                        @foreach($attributeSource->attributes_data['filter_attributes'] as $attr)
+                                                            <div>
+                                                                <dt class="text-sm font-medium text-green-900">{!! $this->highlightSearchTerms($attr['name']) !!}</dt>
+                                                                <dd class="text-sm text-green-800 font-semibold">{!! $this->highlightSearchTerms($attr['value']) !!}</dd>
+                                                            </div>
+                                                        @endforeach
+                                                    </dl>
+                                                </div>
+                                            </div>
+                                        @endif
+
+                                        <!-- All Attributes -->
+                                        @if(isset($attributeSource->attributes_data['attributes']) && count($attributeSource->attributes_data['attributes']) > 0)
+                                            <div>
+                                                <h5 class="text-sm font-medium text-gray-800 mb-3">Complete Specifications</h5>
+                                                <div class="bg-gray-50 rounded-lg p-3">
+                                                    <dl class="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+                                                        @foreach($attributeSource->attributes_data['attributes'] as $attr)
+                                                            <div>
+                                                                <dt class="text-sm font-medium text-gray-900">{!! $this->highlightSearchTerms($attr['name']) !!}</dt>
+                                                                <dd class="text-sm text-gray-600">{!! $this->highlightSearchTerms($attr['value']) !!}</dd>
+                                                            </div>
+                                                        @endforeach
+                                                    </dl>
+                                                </div>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Price Details from Multiple Sources -->
+                @if($product->prices && $product->prices->count() > 0)
+                    <div class="mb-8">
+                        <h3 class="text-lg font-medium text-gray-900 mb-3">Pricing Information by Source</h3>
+                        <div class="space-y-4">
+                            @foreach($product->prices as $priceSource)
+                                <div class="border border-gray-200 rounded-lg p-4">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h4 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                                            Source: {{ $priceSource->source_name }}
+                                        </h4>
+                                        @if(isset($priceSource->pricing_data['currency']))
+                                            <span class="text-xs text-gray-500">{{ $priceSource->pricing_data['currency'] }}</span>
+                                        @endif
+                                    </div>
+                                    
+                                    @if(isset($priceSource->pricing_data['ranges']) && is_array($priceSource->pricing_data['ranges']))
+                                        <div class="bg-yellow-50 rounded-lg p-3">
+                                            <h5 class="text-sm font-medium text-yellow-800 mb-2">Quantity-based Pricing</h5>
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                @foreach($priceSource->pricing_data['ranges'] as $range)
+                                                    <div class="bg-white rounded p-2 border border-yellow-200">
+                                                        <div class="text-xs text-yellow-700">
+                                                            {{ $range['from'] }}{{ isset($range['to']) ? ' - ' . $range['to'] : '+' }} units
+                                                        </div>
+                                                        <div class="text-sm font-semibold text-yellow-900">
+                                                            ${{ number_format($range['price'], 2) }}
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    @else
+                                        <div class="bg-blue-50 rounded-lg p-3">
+                                            <div class="text-lg font-bold text-blue-900">
+                                                ${{ number_format($priceSource->pricing_data['price'] ?? $priceSource->pricing_data['unit_price'] ?? 0, 2) }}
+                                            </div>
                                         </div>
                                     @endif
-                                @endforeach
-                            </dl>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Stock Information by Source -->
+                @if($product->quantities && $product->quantities->count() > 0)
+                    <div class="mb-8">
+                        <h3 class="text-lg font-medium text-gray-900 mb-3">Stock Information by Source</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            @foreach($product->quantities as $quantitySource)
+                                <div class="border border-gray-200 rounded-lg p-4">
+                                    <h4 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-2">
+                                        {{ $quantitySource->source_name }}
+                                    </h4>
+                                    <div class="space-y-2">
+                                        @if(isset($quantitySource->quantity_data['quantity']))
+                                            <div class="flex justify-between">
+                                                <span class="text-sm text-gray-600">Quantity:</span>
+                                                <span class="text-sm font-semibold text-gray-900">{{ number_format($quantitySource->quantity_data['quantity']) }}</span>
+                                            </div>
+                                        @endif
+                                        @if(isset($quantitySource->quantity_data['unit']))
+                                            <div class="flex justify-between">
+                                                <span class="text-sm text-gray-600">Unit:</span>
+                                                <span class="text-sm font-semibold text-gray-900">{{ $quantitySource->quantity_data['unit'] }}</span>
+                                            </div>
+                                        @endif
+                                        @if(isset($quantitySource->quantity_data['availability_status']))
+                                            <div class="flex justify-between">
+                                                <span class="text-sm text-gray-600">Status:</span>
+                                                <span class="text-sm font-semibold {{ $quantitySource->quantity_data['availability_status'] === 'in_stock' ? 'text-green-600' : 'text-yellow-600' }}">
+                                                    {{ ucwords(str_replace('_', ' ', $quantitySource->quantity_data['availability_status'])) }}
+                                                </span>
+                                            </div>
+                                        @endif
+                                        @if(isset($quantitySource->quantity_data['last_updated']))
+                                            <div class="flex justify-between">
+                                                <span class="text-sm text-gray-600">Updated:</span>
+                                                <span class="text-xs text-gray-500">{{ $quantitySource->quantity_data['last_updated'] }}</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
                     </div>
                 @endif

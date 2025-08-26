@@ -112,21 +112,30 @@ class Product extends Model
 
     public function scopeActive(Builder $query): Builder
     {
-        return $query->where('status', 'active');
+        return $query->where('status_id', 1); // Assuming status_id 1 is active
     }
 
     public function scopeInStock(Builder $query): Builder
     {
-        return $query->where('stock_quantity', '>', 0);
+        return $query->whereHas('quantities', function ($q) {
+            $q->where(function ($subQ) {
+                $subQ->whereRaw("(quantity_data->>'quantity')::int > 0")
+                    ->orWhereRaw("(quantity_data->>'available')::int > 0");
+            });
+        });
     }
 
     public function scopePriceRange(Builder $query, ?float $min = null, ?float $max = null): Builder
     {
-        if ($min !== null) {
-            $query->where('price', '>=', $min);
-        }
-        if ($max !== null) {
-            $query->where('price', '<=', $max);
+        if ($min !== null || $max !== null) {
+            $query->whereHas('prices', function ($q) use ($min, $max) {
+                if ($min !== null) {
+                    $q->whereRaw("(pricing_data->>'unit_price')::numeric >= ?", [$min]);
+                }
+                if ($max !== null) {
+                    $q->whereRaw("(pricing_data->>'unit_price')::numeric <= ?", [$max]);
+                }
+            });
         }
         return $query;
     }
@@ -191,7 +200,7 @@ class Product extends Model
             // Stage 1: Pre-filter with indexable conditions (FTS, trigram similarity, ILIKE)
             $subQuery->select('products.*')
                 ->from('products')
-                ->where('status', 'active')
+                ->where('status_id', 1)
                 ->where(function ($q) use ($tsquery, $term, $exactMatch) {
                     $q->whereRaw('search_vector @@ to_tsquery(\'english\', ?)', [$tsquery])
                         ->orWhereRaw('name % ?', [$term])  // Trigram similarity for typos (threshold 0.3)
@@ -230,23 +239,105 @@ class Product extends Model
         return $query->orderBy('created_at', 'desc')->limit($limit);
     }
 
-    public function getMainImageAttribute(): ?string
-    {
-        return $this->images[0] ?? null;
-    }
-
-    public function getMainThumbnailAttribute(): ?string
-    {
-        return $this->thumbnails[0] ?? null;
-    }
 
     public function isInStock(): bool
     {
-        return $this->stock_quantity > 0;
+        $totalStock = 0;
+        foreach ($this->quantities as $quantity) {
+            $data = $quantity->quantity_data;
+            if (isset($data['quantity'])) {
+                $totalStock += (int) $data['quantity'];
+            } elseif (isset($data['available'])) {
+                $totalStock += (int) $data['available'];
+            }
+        }
+        return $totalStock > 0;
     }
 
     public function isActive(): bool
     {
-        return $this->status === 'active';
+        return $this->status_id === 1; // Assuming status_id 1 is active
+    }
+
+    public function getStockQuantityAttribute(): int
+    {
+        $totalStock = 0;
+        foreach ($this->quantities as $quantity) {
+            $data = $quantity->quantity_data;
+            if (isset($data['quantity'])) {
+                $totalStock += (int) $data['quantity'];
+            } elseif (isset($data['available'])) {
+                $totalStock += (int) $data['available'];
+            }
+        }
+        return $totalStock;
+    }
+
+    public function getPriceAttribute(): float
+    {
+        // Get the lowest price from all sources
+        $lowestPrice = null;
+        foreach ($this->prices as $price) {
+            $priceData = $price->pricing_data;
+            $currentPrice = null;
+            
+            // Handle different pricing structures
+            if (isset($priceData['unit_price'])) {
+                $currentPrice = (float) $priceData['unit_price'];
+            } elseif (isset($priceData['ranges']) && is_array($priceData['ranges'])) {
+                // Get the first (lowest quantity) price range
+                $firstRange = $priceData['ranges'][0] ?? null;
+                if ($firstRange && isset($firstRange['price'])) {
+                    $currentPrice = (float) $firstRange['price'];
+                }
+            } elseif (isset($priceData['price'])) {
+                $currentPrice = (float) $priceData['price'];
+            }
+            
+            if ($currentPrice !== null && ($lowestPrice === null || $currentPrice < $lowestPrice)) {
+                $lowestPrice = $currentPrice;
+            }
+        }
+        return $lowestPrice ?? 0.00;
+    }
+
+    public function getSkuAttribute(): string
+    {
+        return $this->product_number ?? $this->manufacturer_product_number ?? '';
+    }
+
+    public function getBrandNameAttribute(): ?string
+    {
+        return $this->brand?->name;
+    }
+
+    public function getManufacturerNameAttribute(): ?string
+    {
+        return $this->manufacturer?->name;
+    }
+
+    public function getCategoryNameAttribute(): ?string
+    {
+        return $this->category?->name;
+    }
+
+    public function getAllAttributesAttribute(): array
+    {
+        $allAttributes = [];
+        foreach ($this->attributes as $attribute) {
+            if (isset($attribute->attributes_data) && is_array($attribute->attributes_data)) {
+                $allAttributes = array_merge($allAttributes, $attribute->attributes_data);
+            }
+        }
+        return $allAttributes;
+    }
+
+    public function getPrimaryImageAttribute(): ?string
+    {
+        $firstImage = $this->images->first();
+        if ($firstImage && isset($firstImage->images_data['url'])) {
+            return $firstImage->images_data['url'];
+        }
+        return null;
     }
 }

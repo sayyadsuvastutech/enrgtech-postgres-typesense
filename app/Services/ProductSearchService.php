@@ -30,12 +30,8 @@ class ProductSearchService
     private function buildOptimizedQuery(array $params): Builder
     {
         $query = Product::query()
-            ->select([
-                'id', 'name', 'slug', 'sku', 'price', 'stock_quantity',
-                'status', 'category_id', 'brand_id', 'manufacturer_id',
-                'category_name', 'brand_name', 'manufacturer_name', 'attributes',
-            ])
-            ->where('status', 'active');
+            ->with(['category', 'brand', 'manufacturer', 'prices', 'quantities', 'attributes', 'images'])
+            ->where('status_id', 1); // Assuming status_id 1 is active
 
 
 
@@ -56,15 +52,32 @@ class ProductSearchService
 
         // Apply price range filter
         if (isset($params['min_price']) && $params['min_price'] !== null) {
-            $query->where('price', '>=', $params['min_price']);
+            $query->whereHas('prices', function ($q) use ($params) {
+                $q->where(function ($subQ) use ($params) {
+                    $subQ->whereRaw("(pricing_data->>'unit_price')::numeric >= ?", [$params['min_price']])
+                        ->orWhereRaw("(pricing_data->'ranges'->0->>'price')::numeric >= ?", [$params['min_price']])
+                        ->orWhereRaw("(pricing_data->>'price')::numeric >= ?", [$params['min_price']]);
+                });
+            });
         }
         if (isset($params['max_price']) && $params['max_price'] !== null) {
-            $query->where('price', '<=', $params['max_price']);
+            $query->whereHas('prices', function ($q) use ($params) {
+                $q->where(function ($subQ) use ($params) {
+                    $subQ->whereRaw("(pricing_data->>'unit_price')::numeric <= ?", [$params['max_price']])
+                        ->orWhereRaw("(pricing_data->'ranges'->0->>'price')::numeric <= ?", [$params['max_price']])
+                        ->orWhereRaw("(pricing_data->>'price')::numeric <= ?", [$params['max_price']]);
+                });
+            });
         }
 
         // Apply stock filter
         if (!empty($params['in_stock'])) {
-            $query->where('stock_quantity', '>', 0);
+            $query->whereHas('quantities', function ($q) {
+                $q->where(function ($subQ) {
+                    $subQ->whereRaw("(quantity_data->>'quantity')::int > 0")
+                        ->orWhereRaw("(quantity_data->>'available')::int > 0");
+                });
+            });
         }
 
         // Apply advanced semantic search with multi-factor scoring
@@ -133,7 +146,16 @@ class ProductSearchService
                 $query->orderBy('name', $sortOrder);
                 break;
             case 'price':
-                $query->orderBy('price', $sortOrder);
+                // Order by minimum price from all sources - handle multiple price structures
+                $query->leftJoin('product_prices', 'products.id', '=', 'product_prices.product_id')
+                    ->orderByRaw("MIN(
+                        COALESCE(
+                            (product_prices.pricing_data->>'unit_price')::numeric,
+                            (product_prices.pricing_data->'ranges'->0->>'price')::numeric,
+                            (product_prices.pricing_data->>'price')::numeric
+                        )
+                    ) $sortOrder")
+                    ->groupBy('products.id');
                 break;
             case 'newest':
                 $query->orderBy('created_at', 'desc');
@@ -167,7 +189,7 @@ class ProductSearchService
         return Category::query()
             ->select('id', 'name')
             ->withCount(['products as products_count' => function ($query) {
-                $query->where('status', 'active');
+                $query->where('status_id', 1);
             }])
             ->orderByDesc('products_count')
             ->limit(50)
@@ -180,7 +202,7 @@ class ProductSearchService
         return Brand::query()
             ->select('id', 'name')
             ->withCount(['products as products_count' => function ($query) {
-                $query->where('status', 'active');
+                $query->where('status_id', 1);
             }])
             ->orderByDesc('products_count')
             ->limit(50)
@@ -193,7 +215,7 @@ class ProductSearchService
         return Manufacturer::query()
             ->select('id', 'name')
             ->withCount(['products as products_count' => function ($query) {
-                $query->where('status', 'active');
+                $query->where('status_id', 1);
             }])
             ->orderByDesc('products_count')
             ->limit(50)
@@ -203,9 +225,25 @@ class ProductSearchService
 
     private function getPriceRange(): array
     {
-        $result = Product::query()
-            ->where('status', 'active')
-            ->selectRaw('MIN(price) as min_price, MAX(price) as max_price')
+        $result = DB::table('product_prices')
+            ->join('products', 'products.id', '=', 'product_prices.product_id')
+            ->where('products.status_id', 1)
+            ->selectRaw("
+                MIN(
+                    COALESCE(
+                        (product_prices.pricing_data->>'unit_price')::numeric,
+                        (product_prices.pricing_data->'ranges'->0->>'price')::numeric,
+                        (product_prices.pricing_data->>'price')::numeric
+                    )
+                ) as min_price, 
+                MAX(
+                    COALESCE(
+                        (product_prices.pricing_data->>'unit_price')::numeric,
+                        (product_prices.pricing_data->'ranges'->0->>'price')::numeric,
+                        (product_prices.pricing_data->>'price')::numeric
+                    )
+                ) as max_price
+            ")
             ->first();
 
         return [
