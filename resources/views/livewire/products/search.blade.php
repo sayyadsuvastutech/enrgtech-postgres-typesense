@@ -220,7 +220,7 @@ class extends Component {
                             <!-- Price Presets -->
                             <div class="space-y-2 mb-4">
                                 @foreach($pricePresets as $preset)
-                                    <button wire:click="setPriceRange({{ $preset['min'] }}, {{ $preset['max'] }})"
+                                    <button wire:click="setPriceRange({{ $preset['min'] === null ? 'null' : $preset['min'] }}, {{ $preset['max'] === null ? 'null' : $preset['max'] }})"
                                             class="block w-full text-left px-3 py-2 text-sm rounded-lg border transition-colors {{ ($minPrice == $preset['min'] && $maxPrice == $preset['max']) ? 'bg-blue-50 border-blue-200 text-blue-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50' }}">
                                         {{ $preset['label'] }}
                                     </button>
