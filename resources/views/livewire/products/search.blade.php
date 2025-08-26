@@ -342,7 +342,7 @@ class extends Component {
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
                      wire:loading.class="opacity-50">
                     @forelse($this->getProducts as $product)
-                        <a href="{{ route('products.show', $product) }}"
+                        <a href="{{ route('products.show', ['product' => $product, 'search' => $search]) }}"
                             class="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group cursor-pointer">
                             <!-- Product Image -->
                             <div class="aspect-square bg-gray-50 relative">
