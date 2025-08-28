@@ -192,8 +192,8 @@ class Product extends Model
 
         return $query->fromSub(function ($subQuery) use ($tsquery, $term, $exactMatch) {
             // Stage 1: Pre-filter with indexable conditions (FTS, trigram similarity, ILIKE)
-            $subQuery->select('products.*')
-                ->from('products')
+            $subQuery->select('ioa_products.*')
+                ->from('ioa_products')
                 ->where('status_id', 1)
                 ->where(function ($q) use ($tsquery, $term, $exactMatch) {
                     $q->whereRaw('search_vector @@ to_tsquery(\'english\', ?)', [$tsquery])
@@ -264,7 +264,7 @@ class Product extends Model
         foreach ($this->prices as $price) {
             $priceRanges = $price->pricing_ranges;
             $currentPrice = null;
-            
+
             // Handle pricing ranges structure
             if (is_array($priceRanges) && !empty($priceRanges)) {
                 // Get the first (lowest quantity) price range
@@ -273,7 +273,7 @@ class Product extends Model
                     $currentPrice = (float) $firstRange['price'];
                 }
             }
-            
+
             if ($currentPrice !== null && ($lowestPrice === null || $currentPrice < $lowestPrice)) {
                 $lowestPrice = $currentPrice;
             }
@@ -284,6 +284,16 @@ class Product extends Model
     public function getSkuAttribute(): string
     {
         return $this->pnum ?? $this->mf_pnum ?? '';
+    }
+
+    public function getProductNumberAttribute(): string
+    {
+        return $this->pnum ?? '';
+    }
+
+    public function getManufacturerProductNumberAttribute(): string
+    {
+        return $this->mf_pnum ?? '';
     }
 
     public function getBrandNameAttribute(): ?string
@@ -315,8 +325,8 @@ class Product extends Model
     public function getPrimaryImageAttribute(): ?string
     {
         $firstImage = $this->images->first();
-        if ($firstImage && isset($firstImage->images['url'])) {
-            return $firstImage->images['url'];
+        if ($firstImage && isset($firstImage->images[0]['path'])) {
+            return $firstImage->images[0]['path'];
         }
         return null;
     }

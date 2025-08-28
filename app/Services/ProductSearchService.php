@@ -137,9 +137,9 @@ class ProductSearchService
                 break;
             case 'price':
                 // Order by minimum price from all sources
-                $query->leftJoin('product_prices', 'products.id', '=', 'product_prices.product_id')
-                    ->orderByRaw("MIN((product_prices.pricing_ranges->0->>'price')::numeric) $sortOrder")
-                    ->groupBy('products.id');
+                $query->leftJoin('ioa_product_prices', 'ioa_products.id', '=', 'ioa_product_prices.product_id')
+                    ->orderByRaw("MIN((ioa_product_prices.pricing_ranges->0->>'price')::numeric) $sortOrder")
+                    ->groupBy('ioa_products.id');
                 break;
             case 'newest':
                 $query->orderBy('created_at', 'desc');
@@ -209,12 +209,12 @@ class ProductSearchService
 
     private function getPriceRange(): array
     {
-        $result = DB::table('product_prices')
-            ->join('products', 'products.id', '=', 'product_prices.product_id')
-            ->where('products.status_id', 1)
+        $result = DB::table('ioa_product_prices')
+            ->join('ioa_products', 'ioa_products.id', '=', 'ioa_product_prices.product_id')
+            ->where('ioa_products.status_id', 1)
             ->selectRaw("
-                MIN((product_prices.pricing_ranges->0->>'price')::numeric) as min_price, 
-                MAX((product_prices.pricing_ranges->0->>'price')::numeric) as max_price
+                MIN((ioa_product_prices.pricing_ranges->0->>'price')::numeric) as min_price,
+                MAX((ioa_product_prices.pricing_ranges->0->>'price')::numeric) as max_price
             ")
             ->first();
 

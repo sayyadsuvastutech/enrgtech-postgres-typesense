@@ -88,11 +88,15 @@ class extends Component {
                 @if($product->images && $product->images->count() > 1)
                     <div class="hidden mt-6 w-full max-w-2xl mx-auto sm:block lg:max-w-none">
                         <div class="grid grid-cols-4 gap-6">
-                            @foreach($product->images as $index => $image)
-                                <button class="relative h-24 bg-white rounded-md flex items-center justify-center text-sm font-medium uppercase text-gray-900 cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring focus:ring-offset-4 focus:ring-blue-500">
-                                    <span class="sr-only">{{ $product->name }} image {{ $index + 1 }}</span>
-                                    <img src="{{ $image->images['url'] ?? '/images/place_holder.svg' }}" alt="{{ $product->name }}" class="w-full h-full object-center object-cover rounded-md">
-                                </button>
+                            @foreach($product->images as $index => $imageSource)
+                                @if(isset($imageSource->images) && is_array($imageSource->images))
+                                    @foreach($imageSource->images as $imageIndex => $image)
+                                        <button class="relative h-24 bg-white rounded-md flex items-center justify-center text-sm font-medium uppercase text-gray-900 cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring focus:ring-offset-4 focus:ring-blue-500">
+                                            <span class="sr-only">{{ $product->name }} image {{ $index + 1 }}-{{ $imageIndex + 1 }}</span>
+                                            <img src="{{ $image['path'] ?? '/images/place_holder.svg' }}" alt="{{ $product->name }}" class="w-full h-full object-center object-cover rounded-md">
+                                        </button>
+                                    @endforeach
+                                @endif
                             @endforeach
                         </div>
                     </div>
@@ -100,7 +104,10 @@ class extends Component {
 
                 <!-- Main image -->
                 <div class="w-full aspect-square">
-                    <img src="{{ $product->primary_image ?? '/images/place_holder.svg' }}" alt="{{ $product->name }}" class="w-full h-full object-center object-cover sm:rounded-lg">
+                    @php
+                        $primaryImage = $product->images->first()?->images[0]['path'] ?? '/images/place_holder.svg';
+                    @endphp
+                    <img src="{{ $primaryImage }}" alt="{{ $product->name }}" class="w-full h-full object-center object-cover sm:rounded-lg">
                 </div>
             </div>
 
@@ -132,7 +139,11 @@ class extends Component {
                     <!-- SKU -->
                     <div class="mt-3 text-sm text-gray-600">
                         <span class="font-medium">SKU:</span> 
-                        <span class="font-mono">{{ $product->sku }}</span>
+                        <span class="font-mono">{{ $product->pnum }}</span>
+                        @if($product->mf_pnum && $product->mf_pnum !== $product->pnum)
+                            <br><span class="font-medium">MFG Part:</span> 
+                            <span class="font-mono">{{ $product->mf_pnum }}</span>
+                        @endif
                     </div>
                 </div>
 
@@ -207,12 +218,12 @@ class extends Component {
                             @endif
                             <div>
                                 <dt class="text-sm font-medium text-blue-900">Product Number</dt>
-                                <dd class="text-sm text-blue-800 font-mono">{!! $this->highlightSearchTerms($product->product_number) !!}</dd>
+                                <dd class="text-sm text-blue-800 font-mono">{!! $this->highlightSearchTerms($product->pnum) !!}</dd>
                             </div>
-                            @if($product->manufacturer_product_number)
+                            @if($product->mf_pnum)
                                 <div>
                                     <dt class="text-sm font-medium text-blue-900">Manufacturer Part Number</dt>
-                                    <dd class="text-sm text-blue-800 font-mono">{!! $this->highlightSearchTerms($product->manufacturer_product_number) !!}</dd>
+                                    <dd class="text-sm text-blue-800 font-mono">{!! $this->highlightSearchTerms($product->mf_pnum) !!}</dd>
                                 </div>
                             @endif
                         </div>
@@ -240,38 +251,16 @@ class extends Component {
                                     </div>
                                     
                                     <div class="p-4">
-                                        <!-- Filter Attributes (Search Relevant) -->
-                                        @if(isset($attributeSource->attributes_data['filter_attributes']) && count($attributeSource->attributes_data['filter_attributes']) > 0)
-                                            <div class="mb-6">
-                                                <h5 class="text-sm font-medium text-green-800 mb-3 flex items-center">
-                                                    <svg class="w-4 h-4 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                                                        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path>
-                                                    </svg>
-                                                    Search-Relevant Attributes
-                                                </h5>
-                                                <div class="bg-green-50 rounded-lg p-3">
-                                                    <dl class="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-                                                        @foreach($attributeSource->attributes_data['filter_attributes'] as $attr)
-                                                            <div>
-                                                                <dt class="text-sm font-medium text-green-900">{!! $this->highlightSearchTerms($attr['name']) !!}</dt>
-                                                                <dd class="text-sm text-green-800 font-semibold">{!! $this->highlightSearchTerms($attr['value']) !!}</dd>
-                                                            </div>
-                                                        @endforeach
-                                                    </dl>
-                                                </div>
-                                            </div>
-                                        @endif
-
                                         <!-- All Attributes -->
-                                        @if(isset($attributeSource->attributes_data['attributes']) && count($attributeSource->attributes_data['attributes']) > 0)
+                                        @if(isset($attributeSource->attributes) && is_array($attributeSource->attributes) && count($attributeSource->attributes) > 0)
                                             <div>
-                                                <h5 class="text-sm font-medium text-gray-800 mb-3">Complete Specifications</h5>
+                                                <h5 class="text-sm font-medium text-gray-800 mb-3">Product Specifications</h5>
                                                 <div class="bg-gray-50 rounded-lg p-3">
                                                     <dl class="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-                                                        @foreach($attributeSource->attributes_data['attributes'] as $attr)
+                                                        @foreach($attributeSource->attributes as $key => $value)
                                                             <div>
-                                                                <dt class="text-sm font-medium text-gray-900">{!! $this->highlightSearchTerms($attr['name']) !!}</dt>
-                                                                <dd class="text-sm text-gray-600">{!! $this->highlightSearchTerms($attr['value']) !!}</dd>
+                                                                <dt class="text-sm font-medium text-gray-900">{!! $this->highlightSearchTerms($key) !!}</dt>
+                                                                <dd class="text-sm text-gray-600">{!! $this->highlightSearchTerms($value) !!}</dd>
                                                             </div>
                                                         @endforeach
                                                     </dl>
@@ -308,10 +297,10 @@ class extends Component {
                                                 @foreach($priceSource->pricing_ranges as $range)
                                                     <div class="bg-white rounded p-2 border border-yellow-200">
                                                         <div class="text-xs text-yellow-700">
-                                                            {{ $range['from'] }}{{ isset($range['to']) ? ' - ' . $range['to'] : '+' }} units
+                                                            {{ $range['from'] }}{{ isset($range['to']) && $range['to'] ? ' - ' . $range['to'] : '+' }} units
                                                         </div>
                                                         <div class="text-sm font-semibold text-yellow-900">
-                                                            {{ ($range['currency'] ?? $priceSource->currency ?? 'USD') }} ${{ number_format($range['price'], 2) }}
+                                                            {{ $priceSource->currency ?? 'USD' }} ${{ number_format(floatval($range['price']), 2) }}
                                                         </div>
                                                     </div>
                                                 @endforeach
@@ -320,7 +309,7 @@ class extends Component {
                                     @else
                                         <div class="bg-blue-50 rounded-lg p-3">
                                             <div class="text-lg font-bold text-blue-900">
-                                                {{ $priceSource->currency ?? 'USD' }} ${{ number_format($priceSource->pricing_ranges[0]['price'] ?? 0, 2) }}
+                                                {{ $priceSource->currency ?? 'USD' }} ${{ number_format(floatval($priceSource->pricing_ranges[0]['price'] ?? 0), 2) }}
                                             </div>
                                         </div>
                                     @endif

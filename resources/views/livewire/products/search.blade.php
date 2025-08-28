@@ -346,7 +346,10 @@ class extends Component {
                             class="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group cursor-pointer">
                             <!-- Product Image -->
                             <div class="aspect-square bg-gray-50 relative">
-                                <img src="/images/place_holder.svg"
+                                @php
+                                    $primaryImage = $product->images->first()?->images[0]['path'] ?? '/images/place_holder.svg';
+                                @endphp
+                                <img src="{{ $primaryImage }}"
                                      alt="{{ $product->name }}"
                                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                      loading="lazy">
@@ -379,7 +382,7 @@ class extends Component {
 
                                 <!-- Product Number -->
                                 <div class="text-xs text-gray-600 font-mono">
-                                    SKU: {{ $product->product_number }}
+                                    SKU: {{ $product->pnum }}
                                 </div>
 
                                 <!-- Price & Stock -->
