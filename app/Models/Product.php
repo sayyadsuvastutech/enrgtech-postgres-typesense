@@ -13,13 +13,14 @@ class Product extends Model
 {
     use HasFactory;
 
+    protected $table = 'ioa_products';
+
     protected $fillable = [
         'name',
         'title',
-        'code',
-        'product_number',
-        'manufacturer_product_number',
-        'manufacturer_product_slug',
+        'pnum',
+        'mf_pnum',
+        'mf_pnum_slug',
         'description',
         'category_id',
         'manufacturer_id',
@@ -28,17 +29,14 @@ class Product extends Model
         'meta_title',
         'meta_description',
         'is_rohs_compliant',
-        'is_verified',
-        'is_pushed',
+        'pushed',
         'total_reviews',
         'average_rating',
         'video_url',
         'status_id',
-        'session_insert_id',
-        'session_update_id',
         'is_updated',
-        'created_by',
-        'updated_by',
+        'sess_insrt_id',
+        'sess_updt_id',
         'category_name',
         'manufacturer_name',
         'brand_name',
@@ -49,15 +47,12 @@ class Product extends Model
         return [
             'average_rating' => 'decimal:2',
             'is_rohs_compliant' => 'boolean',
-            'is_verified' => 'boolean',
-            'is_pushed' => 'boolean',
+            'pushed' => 'boolean',
             'is_updated' => 'boolean',
             'total_reviews' => 'integer',
             'status_id' => 'integer',
-            'session_insert_id' => 'integer',
-            'session_update_id' => 'integer',
-            'created_by' => 'integer',
-            'updated_by' => 'integer',
+            'sess_insrt_id' => 'integer',
+            'sess_updt_id' => 'integer',
         ];
     }
 
@@ -154,9 +149,9 @@ class Product extends Model
         return $query->where('manufacturer_id', $manufacturerId);
     }
 
-    public function scopeByProductNumber(Builder $query, string $productNumber): Builder
+    public function scopeByProductNumber(Builder $query, string $pnum): Builder
     {
-        return $query->where('product_number', $productNumber);
+        return $query->where('pnum', $pnum);
     }
 
     /**
@@ -288,22 +283,22 @@ class Product extends Model
 
     public function getSkuAttribute(): string
     {
-        return $this->product_number ?? $this->manufacturer_product_number ?? '';
+        return $this->pnum ?? $this->mf_pnum ?? '';
     }
 
     public function getBrandNameAttribute(): ?string
     {
-        return $this->brand?->name;
+        return $this->brand_name ?? $this->brand?->name;
     }
 
     public function getManufacturerNameAttribute(): ?string
     {
-        return $this->manufacturer?->name;
+        return $this->manufacturer_name ?? $this->manufacturer?->name;
     }
 
     public function getCategoryNameAttribute(): ?string
     {
-        return $this->category?->name;
+        return $this->category_name ?? $this->category?->name;
     }
 
     public function getAllAttributesAttribute(): array

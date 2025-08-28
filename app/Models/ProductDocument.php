@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ProductDocument extends Model
 {
     use HasFactory;
+
+    protected $table = 'ioa_product_documents';
+
     protected $fillable = [
         'product_id',
         'source_name',

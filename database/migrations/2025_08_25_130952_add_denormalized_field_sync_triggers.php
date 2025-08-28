@@ -17,7 +17,7 @@ return new class extends Migration
             CREATE OR REPLACE FUNCTION sync_category_name_to_products()
             RETURNS TRIGGER AS $$
             BEGIN
-                UPDATE products 
+                UPDATE ioa_products 
                 SET category_name = NEW.name
                 WHERE category_id = NEW.id;
                 RETURN NEW;
@@ -28,7 +28,7 @@ return new class extends Migration
         // Create trigger on categories table
         DB::statement("
             CREATE TRIGGER categories_sync_products_trigger
-                AFTER UPDATE OF name ON categories
+                AFTER UPDATE OF name ON ioa_categories
                 FOR EACH ROW
                 EXECUTE FUNCTION sync_category_name_to_products();
         ");
@@ -38,7 +38,7 @@ return new class extends Migration
             CREATE OR REPLACE FUNCTION sync_manufacturer_name_to_products()
             RETURNS TRIGGER AS $$
             BEGIN
-                UPDATE products 
+                UPDATE ioa_products 
                 SET manufacturer_name = NEW.name
                 WHERE manufacturer_id = NEW.id;
                 RETURN NEW;
@@ -49,7 +49,7 @@ return new class extends Migration
         // Create trigger on manufacturers table
         DB::statement("
             CREATE TRIGGER manufacturers_sync_products_trigger
-                AFTER UPDATE OF name ON manufacturers
+                AFTER UPDATE OF name ON ioa_manufacturers
                 FOR EACH ROW
                 EXECUTE FUNCTION sync_manufacturer_name_to_products();
         ");
@@ -61,12 +61,12 @@ return new class extends Migration
             BEGIN
                 -- Update category_name
                 SELECT name INTO NEW.category_name
-                FROM categories 
+                FROM ioa_categories 
                 WHERE id = NEW.category_id;
 
                 -- Update manufacturer_name
                 SELECT name INTO NEW.manufacturer_name
-                FROM manufacturers 
+                FROM ioa_manufacturers 
                 WHERE id = NEW.manufacturer_id;
 
                 RETURN NEW;
@@ -77,7 +77,7 @@ return new class extends Migration
         // Create trigger on products table to populate denormalized fields
         DB::statement("
             CREATE TRIGGER products_populate_denormalized_fields_trigger
-                BEFORE INSERT OR UPDATE ON products
+                BEFORE INSERT OR UPDATE ON ioa_products
                 FOR EACH ROW
                 EXECUTE FUNCTION populate_product_denormalized_fields();
         ");
@@ -89,13 +89,13 @@ return new class extends Migration
     public function down(): void
     {
         // Drop triggers and functions in reverse order
-        DB::statement('DROP TRIGGER IF EXISTS products_populate_denormalized_fields_trigger ON products');
+        DB::statement('DROP TRIGGER IF EXISTS products_populate_denormalized_fields_trigger ON ioa_products');
         DB::statement('DROP FUNCTION IF EXISTS populate_product_denormalized_fields()');
 
-        DB::statement('DROP TRIGGER IF EXISTS manufacturers_sync_products_trigger ON manufacturers');
+        DB::statement('DROP TRIGGER IF EXISTS manufacturers_sync_products_trigger ON ioa_manufacturers');
         DB::statement('DROP FUNCTION IF EXISTS sync_manufacturer_name_to_products()');
 
-        DB::statement('DROP TRIGGER IF EXISTS categories_sync_products_trigger ON categories');
+        DB::statement('DROP TRIGGER IF EXISTS categories_sync_products_trigger ON ioa_categories');
         DB::statement('DROP FUNCTION IF EXISTS sync_category_name_to_products()');
     }
 };

@@ -11,16 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('product_images', function (Blueprint $table) {
+        Schema::create('ioa_product_images', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id')->constrained()->onDelete('cascade');
-            $table->string('source_name', 50); // dk, rs, ct, vp, et
+            $table->foreignId('product_id')->constrained('ioa_products')->onDelete('cascade');
+            $table->string('source_name', 50);
             $table->jsonb('images')->nullable();
             $table->timestamps();
-
-            // Indexes for performance
-            $table->index(['product_id', 'source_name']);
-            $table->index('product_id');
         });
     }
 
@@ -29,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('product_images');
+        Schema::dropIfExists('ioa_product_images');
     }
 };

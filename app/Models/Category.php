@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Category extends Model
 {
     use HasFactory;
+
+    protected $table = 'ioa_categories';
     
     protected $fillable = [
         'name',
@@ -23,8 +25,6 @@ class Category extends Model
         'meta_description',
         'status_id',
         'products_count',
-        'created_by',
-        'updated_by',
     ];
 
     public function products(): HasMany
@@ -45,8 +45,6 @@ class Category extends Model
             'pushed' => 'boolean',
             'status_id' => 'integer',
             'products_count' => 'integer',
-            'created_by' => 'integer',
-            'updated_by' => 'integer',
         ];
     }
 

@@ -10,19 +10,15 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('product_sources', function (Blueprint $table) {
+        Schema::create('ioa_product_sources', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id')->constrained()->onDelete('cascade');
+            $table->foreignId('product_id')->constrained('ioa_products')->onDelete('cascade');
             $table->string('source_name', 50); // dk, rs, ct, vp, et
             $table->bigInteger('source_product_id')->nullable();
             $table->text('source_url')->nullable();
-            $table->jsonb('source_date')->nullable();
+            $table->jsonb('source_data')->nullable();
 
             $table->timestamps();
-
-            // Indexes for performance
-            $table->index(['product_id', 'source_name']);
-            $table->index('source_product_id');
         });
     }
 
@@ -31,6 +27,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('product_sources');
+        Schema::dropIfExists('ioa_product_sources');
     }
 };

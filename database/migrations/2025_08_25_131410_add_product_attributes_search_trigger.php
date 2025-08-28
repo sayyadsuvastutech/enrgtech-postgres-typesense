@@ -19,7 +19,7 @@ return new class extends Migration
             BEGIN
                 -- Update the search_vector for the related product
                 -- This will trigger the existing product search vector update function
-                UPDATE products 
+                UPDATE ioa_products 
                 SET updated_at = NOW()  -- Minimal update to trigger the search vector update
                 WHERE id = COALESCE(NEW.product_id, OLD.product_id);
                 
@@ -31,7 +31,7 @@ return new class extends Migration
         // Create trigger on product_attributes table
         DB::statement("
             CREATE TRIGGER product_attributes_search_sync_trigger
-                AFTER INSERT OR UPDATE OR DELETE ON product_attributes
+                AFTER INSERT OR UPDATE OR DELETE ON ioa_product_attributes
                 FOR EACH ROW
                 EXECUTE FUNCTION update_product_search_from_attributes();
         ");
@@ -42,7 +42,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement('DROP TRIGGER IF EXISTS product_attributes_search_sync_trigger ON product_attributes');
+        DB::statement('DROP TRIGGER IF EXISTS product_attributes_search_sync_trigger ON ioa_product_attributes');
         DB::statement('DROP FUNCTION IF EXISTS update_product_search_from_attributes()');
     }
 };

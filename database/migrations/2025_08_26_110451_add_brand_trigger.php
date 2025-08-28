@@ -15,10 +15,10 @@ return new class extends Migration
 
         // Update existing products with brand names
         DB::statement('
-            UPDATE products
-            SET brand_name = brands.name
-            FROM brands
-            WHERE products.brand_id = brands.id
+            UPDATE ioa_products
+            SET brand_name = ioa_brands.name
+            FROM ioa_brands
+            WHERE ioa_products.brand_id = ioa_brands.id
         ');
 
         // Create function to update product brand_name when brand is updated
@@ -28,7 +28,7 @@ return new class extends Migration
             BEGIN
                 -- Update products when brand name changes
                 IF TG_OP = 'UPDATE' AND OLD.name IS DISTINCT FROM NEW.name THEN
-                    UPDATE products
+                    UPDATE ioa_products
                     SET brand_name = NEW.name,
                         updated_at = NOW()
                     WHERE brand_id = NEW.id;
@@ -36,7 +36,7 @@ return new class extends Migration
 
                 -- Handle brand deletion
                 IF TG_OP = 'DELETE' THEN
-                    UPDATE products
+                    UPDATE ioa_products
                     SET brand_name = NULL,
                         updated_at = NOW()
                     WHERE brand_id = OLD.id;
@@ -51,14 +51,14 @@ return new class extends Migration
         // Create triggers for brands table
         DB::statement('
             CREATE TRIGGER trigger_update_product_brand_name_on_update
-                AFTER UPDATE ON brands
+                AFTER UPDATE ON ioa_brands
                 FOR EACH ROW
                 EXECUTE FUNCTION update_product_brand_name();
         ');
 
         DB::statement('
             CREATE TRIGGER trigger_update_product_brand_name_on_delete
-                AFTER DELETE ON brands
+                AFTER DELETE ON ioa_brands
                 FOR EACH ROW
                 EXECUTE FUNCTION update_product_brand_name();
         ');
@@ -74,7 +74,7 @@ return new class extends Migration
                         NEW.brand_name = NULL;
                     ELSE
                         SELECT name INTO NEW.brand_name
-                        FROM brands
+                        FROM ioa_brands
                         WHERE id = NEW.brand_id;
                     END IF;
                 END IF;
@@ -86,7 +86,7 @@ return new class extends Migration
 
         DB::statement('
             CREATE TRIGGER trigger_update_brand_name_on_brand_id_change
-                BEFORE UPDATE ON products
+                BEFORE UPDATE ON ioa_products
                 FOR EACH ROW
                 EXECUTE FUNCTION update_product_brand_name_on_brand_id_change();
         ');
@@ -98,16 +98,16 @@ return new class extends Migration
     public function down(): void
     {
         // Drop triggers first
-        DB::statement('DROP TRIGGER IF EXISTS trigger_update_product_brand_name_on_update ON brands;');
-        DB::statement('DROP TRIGGER IF EXISTS trigger_update_product_brand_name_on_delete ON brands;');
-        DB::statement('DROP TRIGGER IF EXISTS trigger_update_brand_name_on_brand_id_change ON products;');
+        DB::statement('DROP TRIGGER IF EXISTS trigger_update_product_brand_name_on_update ON ioa_brands;');
+        DB::statement('DROP TRIGGER IF EXISTS trigger_update_product_brand_name_on_delete ON ioa_brands;');
+        DB::statement('DROP TRIGGER IF EXISTS trigger_update_brand_name_on_brand_id_change ON ioa_products;');
 
         // Drop functions
         DB::statement('DROP FUNCTION IF EXISTS update_product_brand_name();');
         DB::statement('DROP FUNCTION IF EXISTS update_product_brand_name_on_brand_id_change();');
 
         // Remove brand_name column
-        Schema::table('products', function (Blueprint $table) {
+        Schema::table('ioa_products', function (Blueprint $table) {
             $table->dropColumn('brand_name');
         });
     }

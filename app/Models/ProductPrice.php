@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ProductPrice extends Model
 {
     use HasFactory;
+
+    protected $table = 'ioa_product_prices';
+
     protected $fillable = [
         'product_id',
         'source_name',

@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Manufacturer extends Model
 {
     use HasFactory;
+
+    protected $table = 'ioa_manufacturers';
+
     protected $fillable = [
         'name',
         'slug',
@@ -18,26 +21,22 @@ class Manufacturer extends Model
         'banner',
         'meta_title',
         'meta_description',
-        'is_pushed',
+        'pushed',
         'website',
         'total_reviews',
         'products_count',
         'average_rating',
         'status_id',
-        'created_by',
-        'updated_by',
     ];
 
     protected function casts(): array
     {
         return [
-            'is_pushed' => 'boolean',
+            'pushed' => 'boolean',
             'total_reviews' => 'integer',
             'products_count' => 'integer',
             'average_rating' => 'decimal:2',
             'status_id' => 'integer',
-            'created_by' => 'integer',
-            'updated_by' => 'integer',
         ];
     }
 
@@ -49,6 +48,11 @@ class Manufacturer extends Model
     public function status(): BelongsTo
     {
         return $this->belongsTo(Status::class);
+    }
+
+    public function brands(): HasMany
+    {
+        return $this->hasMany(Brand::class);
     }
     
     public function scopePopular($query, int $limit = 10)

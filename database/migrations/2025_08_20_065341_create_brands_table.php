@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('brands', function (Blueprint $table) {
+        Schema::create('ioa_brands', function (Blueprint $table) {
             $table->id();
             $table->integer('manufacturer_id');
             $table->string('name');
@@ -30,16 +30,11 @@ return new class extends Migration
             $table->text('popular_items')->nullable();
             $table->text('new_items')->nullable();
             $table->bigInteger('domain_id')->nullable();
-            $table->foreignId('status_id')->default(1)->constrained('statuses')->onDelete('restrict');
-            $table->bigInteger('created_by')->nullable();
-            $table->bigInteger('updated_by')->nullable();
+            $table->foreignId('status_id')->default(1)->constrained('ioa_statuses')->onDelete('restrict');
             $table->timestamps();
 
-            // PostgreSQL specific indexes for performance
-            $table->index('name');
-            $table->index('manufacturer_id');
-            $table->index('domain_id');
-            $table->index('status_id');
+            // Foreign key constraints
+            $table->foreign('manufacturer_id')->references('id')->on('ioa_manufacturers')->onDelete('restrict');
         });
     }
 
@@ -48,6 +43,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('brands');
+        Schema::dropIfExists('ioa_brands');
     }
 };

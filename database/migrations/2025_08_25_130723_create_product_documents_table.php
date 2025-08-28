@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('product_documents', function (Blueprint $table) {
+        Schema::create('ioa_product_documents', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id')->constrained()->onDelete('cascade');
+            $table->foreignId('product_id')->constrained('ioa_products')->onDelete('cascade');
             $table->string('source_name', 50); // dk, rs, ct, vp, et
             $table->jsonb('documents_data')->nullable(); // JSON structure for documents array
             $table->timestamps();
@@ -29,6 +29,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('product_documents');
+        Schema::dropIfExists('ioa_product_documents');
     }
 };

@@ -12,7 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('statuses', function (Blueprint $table) {
+        Schema::create('ioa_statuses', function (Blueprint $table) {
             $table->id();
             $table->string('name', 50)->unique();
             $table->string('slug', 50)->unique();
@@ -20,16 +20,10 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->integer('sort_order')->default(0);
             $table->timestamps();
-
-            // Indexes
-            $table->index('name');
-            $table->index('slug');
-            $table->index('is_active');
-            $table->index('sort_order');
         });
 
         // Insert default status records
-        DB::table('statuses')->insert([
+        DB::table('ioa_statuses')->insert([
             [
                 'id' => 1,
                 'name' => 'Active',
@@ -58,6 +52,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('statuses');
+        Schema::dropIfExists('ioa_statuses');
     }
 };

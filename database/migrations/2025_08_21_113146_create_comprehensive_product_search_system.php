@@ -127,7 +127,7 @@ return new class extends Migration
                     ' '
                 )
                 INTO attributes_text
-                FROM product_attributes pa
+                FROM ioa_product_attributes pa
                 WHERE pa.product_id = NEW.id;
 
                 -- Create the search vector including all searchable fields
@@ -135,8 +135,8 @@ return new class extends Migration
                     coalesce(NEW.name, '') || ' ' ||
                     coalesce(NEW.title, '') || ' ' ||
                     coalesce(NEW.description, '') || ' ' ||
-                    coalesce(NEW.product_number, '') || ' ' ||
-                    coalesce(NEW.manufacturer_product_number, '') || ' ' ||
+                    coalesce(NEW.pnum, '') || ' ' ||
+                    coalesce(NEW.mf_pnum, '') || ' ' ||
                     coalesce(NEW.category_name, '') || ' ' ||
                     coalesce(NEW.brand_name, '') || ' ' ||
                     coalesce(NEW.manufacturer_name, '') || ' ' ||
@@ -150,8 +150,8 @@ return new class extends Migration
 
         // Create the trigger
         DB::statement("
-            CREATE TRIGGER products_search_vector_trigger
-                BEFORE INSERT OR UPDATE ON products
+            CREATE TRIGGER ioa_ioa_products_search_vector_trigger
+                BEFORE INSERT OR UPDATE ON ioa_products
                 FOR EACH ROW
                 EXECUTE FUNCTION update_product_search_vector();
         ");
@@ -166,27 +166,27 @@ return new class extends Migration
 
         // 3.1: Core status filter index - used in virtually all product queries
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_status_id_idx
-            ON products (status_id)
+            CREATE INDEX IF NOT EXISTS ioa_ioa_products_status_id_idx
+            ON ioa_products (status_id)
         ');
 
         // 3.2: Combined status + name for most common sorting pattern
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_status_name_idx
-            ON products (status_id, name) WHERE status_id = 1
+            CREATE INDEX IF NOT EXISTS ioa_ioa_products_status_name_idx
+            ON ioa_products (status_id, name) WHERE status_id = 1
         ');
 
         // 3.3: Price filtering is now handled in separate product_prices table
         // This index is commented out as prices are normalized
         // DB::statement('
-        //     CREATE INDEX IF NOT EXISTS products_active_price_idx
-        //     ON products (price) WHERE status_id = 1
+        //     CREATE INDEX IF NOT EXISTS ioa_products_active_price_idx
+        //     ON ioa_products (price) WHERE status_id = 1
         // ');
 
         // 3.4: Created date sorting for "newest products"
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_status_created_at_idx
-            ON products (status_id, created_at DESC) WHERE status_id = 1
+            CREATE INDEX IF NOT EXISTS ioa_ioa_products_status_created_at_idx
+            ON ioa_products (status_id, created_at DESC) WHERE status_id = 1
         ');
     }
 
@@ -199,27 +199,27 @@ return new class extends Migration
 
         // 4.1: Primary GIN index on search_vector for all full-text queries
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_search_vector_gin_idx
-            ON products USING GIN (search_vector)
+            CREATE INDEX IF NOT EXISTS ioa_products_search_vector_gin_idx
+            ON ioa_products USING GIN (search_vector)
         ');
 
         // 4.2: Partial GIN index for active products only (covers 90%+ of queries)
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_active_search_vector_idx
-            ON products USING GIN (search_vector)
+            CREATE INDEX IF NOT EXISTS ioa_products_active_search_vector_idx
+            ON ioa_products USING GIN (search_vector)
             WHERE status_id = 1
         ');
 
         // 4.3: Specialized text search indexes on individual fields
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_name_text_gin_idx
-            ON products USING GIN (to_tsvector(\'english\', name))
+            CREATE INDEX IF NOT EXISTS ioa_products_name_text_gin_idx
+            ON ioa_products USING GIN (to_tsvector(\'english\', name))
             WHERE status_id = 1
         ');
 
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_product_number_text_gin_idx
-            ON products USING GIN (to_tsvector(\'english\', product_number))
+            CREATE INDEX IF NOT EXISTS ioa_products_pnum_text_gin_idx
+            ON ioa_products USING GIN (to_tsvector(\'english\', pnum))
             WHERE status_id = 1
         ');
     }
@@ -233,21 +233,21 @@ return new class extends Migration
 
         // 5.1: Trigram index for product names (typo tolerance)
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_name_trgm_gin_idx
-            ON products USING GIN (name gin_trgm_ops)
+            CREATE INDEX IF NOT EXISTS ioa_products_name_trgm_gin_idx
+            ON ioa_products USING GIN (name gin_trgm_ops)
             WHERE status_id = 1
         ');
 
         // 5.2: Active-only trigram search for names (duplicate prevention)
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_active_name_trgm_idx
-            ON products USING GIN (name gin_trgm_ops) WHERE status_id = 1
+            CREATE INDEX IF NOT EXISTS ioa_products_active_name_trgm_idx
+            ON ioa_products USING GIN (name gin_trgm_ops) WHERE status_id = 1
         ');
 
-        // 5.3: Trigram index for product_number fuzzy matching
+        // 5.3: Trigram index for pnum fuzzy matching
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_active_product_number_trgm_idx
-            ON products USING GIN (product_number gin_trgm_ops) WHERE status_id = 1
+            CREATE INDEX IF NOT EXISTS ioa_products_active_pnum_trgm_idx
+            ON ioa_products USING GIN (pnum gin_trgm_ops) WHERE status_id = 1
         ');
     }
 
@@ -260,14 +260,14 @@ return new class extends Migration
 
         // 6.1: Simple name sorting for active products
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_active_name_idx
-            ON products (name) WHERE status_id = 1
+            CREATE INDEX IF NOT EXISTS ioa_products_active_name_idx
+            ON ioa_products (name) WHERE status_id = 1
         ');
 
         // 6.2: Category filtering (EXISTS queries)
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_status_category_idx
-            ON products (status_id, category_id) WHERE status_id = 1
+            CREATE INDEX IF NOT EXISTS ioa_products_status_category_idx
+            ON ioa_products (status_id, category_id) WHERE status_id = 1
         ');
 
         // 6.3: Brand filtering is now handled via manufacturer_id (brands are tied to manufacturers)
@@ -275,8 +275,8 @@ return new class extends Migration
 
         // 6.4: Manufacturer filtering (EXISTS queries)
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_status_manufacturer_idx
-            ON products (status_id, manufacturer_id) WHERE status_id = 1
+            CREATE INDEX IF NOT EXISTS ioa_products_status_manufacturer_idx
+            ON ioa_products (status_id, manufacturer_id) WHERE status_id = 1
         ');
     }
 
@@ -289,13 +289,13 @@ return new class extends Migration
 
         // 7.1: Category-based filtering with name sorting
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_status_category_name_idx
-            ON products (status_id, category_id, name) WHERE status_id = 1
+            CREATE INDEX IF NOT EXISTS ioa_products_status_category_name_idx
+            ON ioa_products (status_id, category_id, name) WHERE status_id = 1
         ');
 
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_active_category_name_idx
-            ON products (category_id, name) WHERE status_id = 1
+            CREATE INDEX IF NOT EXISTS ioa_products_active_category_name_idx
+            ON ioa_products (category_id, name) WHERE status_id = 1
         ');
 
         // 7.2: Price filtering is now handled in separate product_prices table
@@ -306,14 +306,14 @@ return new class extends Migration
 
         // 7.5: Manufacturer-based filtering with name sorting
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_status_manufacturer_name_idx
-            ON products (status_id, manufacturer_id, name) WHERE status_id = 1
+            CREATE INDEX IF NOT EXISTS ioa_products_status_manufacturer_name_idx
+            ON ioa_products (status_id, manufacturer_id, name) WHERE status_id = 1
         ');
 
         // 7.6: Multi-dimensional filtering combinations (using manufacturer instead of brand)
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_category_manufacturer_status_idx
-            ON products (category_id, manufacturer_id, status_id) WHERE status_id = 1
+            CREATE INDEX IF NOT EXISTS ioa_products_category_manufacturer_status_idx
+            ON ioa_products (category_id, manufacturer_id, status_id) WHERE status_id = 1
         ');
 
         // 7.7: Price and stock are now handled in separate tables
@@ -321,8 +321,8 @@ return new class extends Migration
 
         // 7.8: Complex search + filter scenarios (simplified for normalized schema)
         DB::statement('
-            CREATE INDEX IF NOT EXISTS products_search_filters_idx
-            ON products (category_id, manufacturer_id, status_id)
+            CREATE INDEX IF NOT EXISTS ioa_products_search_filters_idx
+            ON ioa_products (category_id, manufacturer_id, status_id)
             WHERE status_id = 1
         ');
     }
@@ -353,37 +353,37 @@ return new class extends Migration
         // Drop indexes in reverse order
         $indexes = [
             // JSONB indexes - removed as columns no longer exist
-            // 'products_images_gin_idx',
-            // 'products_attributes_gin_idx',
+            // 'ioa_products_images_gin_idx',
+            // 'ioa_products_attributes_gin_idx',
 
             // Composite indexes
-            'products_search_filters_idx',
-            'products_category_manufacturer_status_idx',
-            'products_status_manufacturer_name_idx',
-            'products_active_category_name_idx',
-            'products_status_category_name_idx',
+            'ioa_products_search_filters_idx',
+            'ioa_products_category_manufacturer_status_idx',
+            'ioa_products_status_manufacturer_name_idx',
+            'ioa_products_active_category_name_idx',
+            'ioa_products_status_category_name_idx',
 
             // Sorting and filtering indexes
-            'products_status_manufacturer_idx',
-            'products_status_category_idx',
-            'products_active_name_idx',
+            'ioa_products_status_manufacturer_idx',
+            'ioa_products_status_category_idx',
+            'ioa_products_active_name_idx',
 
             // Fuzzy matching indexes
-            'products_active_product_number_trgm_idx',
-            'products_active_name_trgm_idx',
-            'products_name_trgm_gin_idx',
+            'ioa_products_active_pnum_trgm_idx',
+            'ioa_products_active_name_trgm_idx',
+            'ioa_products_name_trgm_gin_idx',
 
             // Full-text search indexes
-            'products_product_number_text_gin_idx',
-            'products_name_text_gin_idx',
-            'products_active_search_vector_idx',
-            'products_search_vector_gin_idx',
+            'ioa_products_pnum_text_gin_idx',
+            'ioa_products_name_text_gin_idx',
+            'ioa_products_active_search_vector_idx',
+            'ioa_products_search_vector_gin_idx',
 
             // Core performance indexes
-            'products_status_created_at_idx',
-            'products_active_price_idx',
-            'products_status_name_idx',
-            'products_status_idx',
+            'ioa_products_status_created_at_idx',
+            'ioa_products_active_price_idx',
+            'ioa_products_status_name_idx',
+            'ioa_products_status_idx',
         ];
 
         foreach ($indexes as $index) {
@@ -391,7 +391,7 @@ return new class extends Migration
         }
 
         // Drop trigger and function
-        DB::statement('DROP TRIGGER IF EXISTS products_search_vector_trigger ON products');
+        DB::statement('DROP TRIGGER IF EXISTS ioa_products_search_vector_trigger ON ioa_products');
         DB::statement('DROP FUNCTION IF EXISTS update_product_search_vector()');
 
         echo "All indexes dropped successfully!\n";

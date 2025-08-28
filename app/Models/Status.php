@@ -10,6 +10,8 @@ class Status extends Model
 {
     use HasFactory;
 
+    protected $table = 'ioa_statuses';
+
     protected $fillable = [
         'name',
         'slug',
