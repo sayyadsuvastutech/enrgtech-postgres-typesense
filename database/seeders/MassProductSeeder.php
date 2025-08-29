@@ -8,6 +8,7 @@ use App\Models\Manufacturer;
 use App\Models\Product;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class MassProductSeeder extends Seeder
 {
@@ -82,8 +83,9 @@ class MassProductSeeder extends Seeder
                 'name' => $productData['name'],
                 'title' => $productData['name'], // Use name as title
                 'description' => $productData['description'],
-                'product_number' => $productData['sku'],
-                'manufacturer_product_number' => $productData['sku'],
+                'pnum' => $productData['sku'],
+                'mf_pnum' => $productData['sku'],
+                'mf_pnum_slug' => Str::slug($productData['sku']),
                 'category_id' => $category->id,
                 'brand_id' => $brand->id,
                 'manufacturer_id' => $manufacturer->id,
@@ -91,9 +93,10 @@ class MassProductSeeder extends Seeder
                 'manufacturer_name' => $manufacturer->name,
                 'brand_name' => $brand->name,
                 'is_rohs_compliant' => fake()->boolean(80), // 80% chance of being RoHS compliant
-                'is_verified' => fake()->boolean(70), // 70% chance of being verified
-                'is_pushed' => fake()->boolean(50), // 50% chance of being pushed
-                'status_id' => fake()->randomElement([1, 1, 1, 2]), // Mostly active (status_id = 1)
+                'pushed' => fake()->boolean(50), // 50% chance of being pushed
+                'status_id' => fake()->randomElement([2, 2, 2, 2]), // Mostly active (status_id = 1)
+                'sess_insrt_id' => fake()->randomNumber(5),
+                'sess_updt_id' => fake()->randomNumber(5),
                 'created_at' => $timestamp,
                 'updated_at' => $timestamp,
             ];
@@ -109,10 +112,10 @@ class MassProductSeeder extends Seeder
         }
 
         // Bulk insert products for performance
-        DB::table('products')->insert($products);
+        DB::table('ioa_products')->insert($products);
 
         // Get the inserted product IDs
-        $startId = DB::table('products')
+        $startId = DB::table('ioa_products')
             ->orderBy('id', 'desc')
             ->limit($count)
             ->pluck('id')
@@ -438,7 +441,7 @@ class MassProductSeeder extends Seeder
                 'source_name' => $sourceName,
                 'source_product_id' => fake()->numberBetween(10000, 99999),
                 'source_url' => 'https://example.com/product/'.fake()->numberBetween(10000, 99999),
-                'source_date' => json_encode(['last_updated' => now()->toDateString()]),
+                'source_data' => json_encode(['last_updated' => now()->toDateString()]),
                 'created_at' => $timestamp,
                 'updated_at' => $timestamp,
             ];
@@ -486,19 +489,19 @@ class MassProductSeeder extends Seeder
 
         // Bulk insert all related data
         if (! empty($productSources)) {
-            DB::table('product_sources')->insert($productSources);
+            DB::table('ioa_product_sources')->insert($productSources);
         }
         if (! empty($productPrices)) {
-            DB::table('product_prices')->insert($productPrices);
+            DB::table('ioa_product_prices')->insert($productPrices);
         }
         if (! empty($productQuantities)) {
-            DB::table('product_quantities')->insert($productQuantities);
+            DB::table('ioa_product_quantities')->insert($productQuantities);
         }
         if (! empty($productImages)) {
-            DB::table('product_images')->insert($productImages);
+            DB::table('ioa_product_images')->insert($productImages);
         }
         if (! empty($productAttributes)) {
-            DB::table('product_attributes')->insert($productAttributes);
+            DB::table('ioa_product_attributes')->insert($productAttributes);
         }
     }
 
@@ -522,7 +525,7 @@ class MassProductSeeder extends Seeder
 
             // Bulk update using raw SQL for better performance
             foreach ($updates as $update) {
-                DB::table('products')
+                DB::table('ioa_products')
                     ->where('id', $update['id'])
                     ->update([
                         'category_name' => $update['category_name'],

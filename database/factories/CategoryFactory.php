@@ -25,10 +25,8 @@ class CategoryFactory extends Factory
             'pushed' => $this->faker->boolean(70),
             'meta_title' => $this->faker->optional()->sentence(6),
             'meta_description' => $this->faker->optional()->sentence(12),
-            'status_id' => $this->faker->randomElement([1, 1, 1, 2]), // 75% active, 25% inactive
+            'status_id' => $this->faker->randomElement([2, 2, 2, 2]), // 75% active, 25% inactive
             'products_count' => $this->faker->numberBetween(0, 1000),
-            'created_by' => $this->faker->optional()->numberBetween(1, 100),
-            'updated_by' => $this->faker->optional()->numberBetween(1, 100),
         ];
     }
 
@@ -36,10 +34,10 @@ class CategoryFactory extends Factory
     {
         return $this->state(function () {
             $name = $this->faker->randomElement([
-                'Electronics', 'Components', 'Semiconductors', 'Power Management', 
+                'Electronics', 'Components', 'Semiconductors', 'Power Management',
                 'Test Equipment', 'Industrial Controls', 'Sensors', 'Displays'
             ]);
-            
+
             return [
                 'name' => $name,
                 'slug' => $this->generateUniqueSlug($name),

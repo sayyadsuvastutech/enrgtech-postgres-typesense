@@ -108,7 +108,7 @@ class Product extends Model
 
     public function scopeActive(Builder $query): Builder
     {
-        return $query->where('status_id', 1); // Assuming status_id 1 is active
+        return $query->where('status_id', 2); // Assuming status_id 1 is active
     }
 
     public function scopeInStock(Builder $query): Builder
@@ -194,7 +194,7 @@ class Product extends Model
             // Stage 1: Pre-filter with indexable conditions (FTS, trigram similarity, ILIKE)
             $subQuery->select('ioa_products.*')
                 ->from('ioa_products')
-                ->where('status_id', 1)
+                ->where('status_id', 2)
                 ->where(function ($q) use ($tsquery, $term, $exactMatch) {
                     $q->whereRaw('search_vector @@ to_tsquery(\'english\', ?)', [$tsquery])
                         ->orWhereRaw('name % ?', [$term])  // Trigram similarity for typos (threshold 0.3)
@@ -245,7 +245,7 @@ class Product extends Model
 
     public function isActive(): bool
     {
-        return $this->status_id === 1; // Assuming status_id 1 is active
+        return $this->status_id === 2; // Assuming status_id 1 is active
     }
 
     public function getStockQuantityAttribute(): int

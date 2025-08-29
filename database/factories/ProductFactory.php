@@ -14,30 +14,33 @@ class ProductFactory extends Factory
         $name = $this->generateProductName();
         $productNumber = $this->generateProductNumber();
         $title = $this->generateProductTitle($name);
+        $mfPnum = $this->faker->optional()->bothify('MPN-####');
 
         return [
             'name' => $name,
             'title' => $title,
-            'code' => $this->faker->optional()->bothify('??###'),
-            'product_number' => $productNumber,
-            'manufacturer_product_number' => $this->faker->optional()->bothify('MPN-####'),
-            'manufacturer_product_slug' => $this->faker->optional()->slug(),
+            'pnum' => $productNumber,
+            'mf_pnum' => $mfPnum,
+            'mf_pnum_slug' => $mfPnum ? Str::slug($mfPnum) : null,
             'description' => $this->faker->paragraphs(3, true),
+            'category_id' => null, // Will be set via relationships
+            'category_name' => null, // Will be populated by triggers
+            'manufacturer_id' => null, // Will be set via relationships
+            'manufacturer_name' => null, // Will be populated by triggers
+            'brand_id' => null, // Will be set via relationships
+            'brand_name' => null, // Will be populated by triggers
             'breadcrumb' => $this->generateBreadcrumb('Category', $name),
             'meta_title' => $this->faker->optional()->sentence(6),
             'meta_description' => $this->faker->optional()->sentence(12),
             'is_rohs_compliant' => $this->faker->boolean(70),
-            'is_verified' => $this->faker->boolean(85),
-            'is_pushed' => $this->faker->boolean(60),
+            'pushed' => $this->faker->boolean(60),
             'total_reviews' => $this->faker->numberBetween(0, 500),
             'average_rating' => $this->faker->optional()->randomFloat(1, 1, 5),
             'video_url' => $this->faker->optional()->url(),
-            'status_id' => $this->faker->randomElement([1, 1, 1, 1, 2]), // 80% active, 20% inactive
-            'session_insert_id' => $this->faker->optional()->randomNumber(5),
-            'session_update_id' => $this->faker->optional()->randomNumber(5),
+            'status_id' => 2, // 80% active, 20% inactive
             'is_updated' => $this->faker->boolean(30),
-            'created_by' => $this->faker->optional()->numberBetween(1, 100),
-            'updated_by' => $this->faker->optional()->numberBetween(1, 100),
+            'sess_insrt_id' => $this->faker->randomNumber(5),
+            'sess_updt_id' => $this->faker->randomNumber(5),
         ];
     }
 
@@ -200,7 +203,7 @@ class ProductFactory extends Factory
 
     private function generateProductNumber(): string
     {
-        return $this->faker->unique()->bothify('PN-########');
+        return $this->faker->unique()->bothify('HT######');
     }
 
     private function generateProductTitle(string $name): string

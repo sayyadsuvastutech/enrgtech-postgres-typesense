@@ -31,7 +31,7 @@ class ProductSearchService
     {
         $query = Product::query()
             ->with(['category', 'brand', 'manufacturer', 'prices', 'quantities', 'attributes', 'images'])
-            ->where('status_id', 1); // Assuming status_id 1 is active
+            ->where('status_id', 2); // Assuming status_id 1 is active
 
 
 
@@ -173,7 +173,7 @@ class ProductSearchService
         return Category::query()
             ->select('id', 'name')
             ->withCount(['products as products_count' => function ($query) {
-                $query->where('status_id', 1);
+                $query->where('status_id', 2);
             }])
             ->orderByDesc('products_count')
             ->limit(50)
@@ -186,7 +186,7 @@ class ProductSearchService
         return Brand::query()
             ->select('id', 'name')
             ->withCount(['products as products_count' => function ($query) {
-                $query->where('status_id', 1);
+                $query->where('status_id', 2);
             }])
             ->orderByDesc('products_count')
             ->limit(50)
@@ -199,7 +199,7 @@ class ProductSearchService
         return Manufacturer::query()
             ->select('id', 'name')
             ->withCount(['products as products_count' => function ($query) {
-                $query->where('status_id', 1);
+                $query->where('status_id', 2);
             }])
             ->orderByDesc('products_count')
             ->limit(50)
@@ -211,7 +211,7 @@ class ProductSearchService
     {
         $result = DB::table('ioa_product_prices')
             ->join('ioa_products', 'ioa_products.id', '=', 'ioa_product_prices.product_id')
-            ->where('ioa_products.status_id', 1)
+            ->where('ioa_products.status_id', 2)
             ->selectRaw("
                 MIN((ioa_product_prices.pricing_ranges->0->>'price')::numeric) as min_price,
                 MAX((ioa_product_prices.pricing_ranges->0->>'price')::numeric) as max_price

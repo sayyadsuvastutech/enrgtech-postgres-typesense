@@ -25,7 +25,7 @@ return new class extends Migration
             $table->integer('total_reviews')->default(0);
             $table->integer('products_count')->default(0);
             $table->decimal('average_rating', 3, 2)->nullable();
-            $table->foreignId('status_id')->default(1)->constrained('ioa_statuses')->onDelete('restrict');
+            $table->foreignId('status_id')->default(2)->constrained('ioa_statuses')->onDelete('restrict');
             $table->timestamps();
         });
     }

@@ -385,6 +385,11 @@ class extends Component {
                                     SKU: {{ $product->pnum }}
                                 </div>
 
+                                <div class="text-xs text-gray-600 font-mono">
+                                    ID: {{ $product->id }}
+                                </div>
+
+
                                 <!-- Price & Stock -->
                                 <div class="flex items-center justify-between pt-2 border-t border-gray-100">
                                     <div class="text-lg font-bold text-gray-900">

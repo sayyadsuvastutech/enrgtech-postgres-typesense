@@ -14,6 +14,7 @@ use App\Models\ProductQuantity;
 use App\Models\ProductSource;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class DatabaseSeeder extends Seeder
 {
@@ -27,6 +28,30 @@ class DatabaseSeeder extends Seeder
         ], [
             'name' => 'Test User',
             'password' => bcrypt('password'),
+        ]);
+
+        // Insert default status records
+        DB::table('ioa_statuses')->insert([
+            [
+                'id' => 1,
+                'name' => 'Active',
+                'slug' => 'active',
+                'description' => 'Item is active and available',
+                'is_active' => true,
+                'sort_order' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => 2,
+                'name' => 'Inactive',
+                'slug' => 'inactive',
+                'description' => 'Item is inactive and not available',
+                'is_active' => false,
+                'sort_order' => 2,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
         ]);
 
         // Create categories (flat structure now)
@@ -128,31 +153,39 @@ class DatabaseSeeder extends Seeder
 
     private function createManufacturers(): \Illuminate\Database\Eloquent\Collection
     {
-        return Manufacturer::factory()->count(50)->create();
+        return Manufacturer::factory()->count(35)->create();
     }
 
     private function createBrands(\Illuminate\Database\Eloquent\Collection $manufacturers): \Illuminate\Database\Eloquent\Collection
     {
-        return Brand::factory()->count(100)->create()->each(function ($brand) use ($manufacturers) {
-            $brand->update(['manufacturer_id' => $manufacturers->random()->id]);
-        });
+        $brands = collect();
+
+        for ($i = 0; $i < 50; $i++) {
+            $manufacturer = $manufacturers->random();
+            $brand = Brand::factory()->create([
+                'manufacturer_id' => $manufacturer->id,
+            ]);
+            $brands->push($brand);
+        }
+
+        return Brand::whereIn('id', $brands->pluck('id'))->get();
     }
 
     private function createProducts(\Illuminate\Database\Eloquent\Collection $categories, \Illuminate\Database\Eloquent\Collection $manufacturers): \Illuminate\Database\Eloquent\Collection
     {
         $products = collect();
-        
+
         for ($i = 0; $i < 1000; $i++) {
             $category = $categories->random();
             $manufacturer = $manufacturers->random();
-            
+
             $product = Product::factory()
                 ->withRelationships($category->id, $manufacturer->id)
                 ->create();
-                
+
             $products->push($product);
         }
-        
+
         return Product::whereIn('id', $products->pluck('id'))->get();
     }
 

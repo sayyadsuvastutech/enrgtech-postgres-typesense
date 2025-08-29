@@ -21,30 +21,6 @@ return new class extends Migration
             $table->integer('sort_order')->default(0);
             $table->timestamps();
         });
-
-        // Insert default status records
-        DB::table('ioa_statuses')->insert([
-            [
-                'id' => 1,
-                'name' => 'Active',
-                'slug' => 'active',
-                'description' => 'Item is active and available',
-                'is_active' => true,
-                'sort_order' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'id' => 2,
-                'name' => 'Inactive',
-                'slug' => 'inactive',
-                'description' => 'Item is inactive and not available',
-                'is_active' => false,
-                'sort_order' => 2,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-        ]);
     }
 
     /**

@@ -30,7 +30,7 @@ return new class extends Migration
             $table->text('popular_items')->nullable();
             $table->text('new_items')->nullable();
             $table->bigInteger('domain_id')->nullable();
-            $table->foreignId('status_id')->default(1)->constrained('ioa_statuses')->onDelete('restrict');
+            $table->foreignId('status_id')->default(2)->constrained('ioa_statuses')->onDelete('restrict');
             $table->timestamps();
 
             // Foreign key constraints

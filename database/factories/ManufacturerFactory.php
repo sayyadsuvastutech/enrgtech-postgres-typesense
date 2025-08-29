@@ -9,7 +9,7 @@ class ManufacturerFactory extends Factory
 {
     private static array $realManufacturers = [
         // Real Major Manufacturers
-        'Stanley Black & Decker', 'Techtronic Industries (TTI)', 'Bosch Group', 
+        'Stanley Black & Decker', 'Techtronic Industries (TTI)', 'Bosch Group',
         'Makita Corporation', 'Hilti Corporation', 'Snap-on Incorporated',
         'Danaher Corporation', 'Emerson Electric', 'Honeywell International',
         '3M Company', 'Eaton Corporation', 'Schneider Electric', 'ABB Group',
@@ -33,8 +33,8 @@ class ManufacturerFactory extends Factory
     {
         $isReal = $this->faker->boolean(60); // 60% chance of real manufacturer
         $manufacturers = $isReal ? self::$realManufacturers : self::$fictionalManufacturers;
-        $name = $this->faker->randomElement($manufacturers);
-        
+        $name = $this->faker->unique()->randomElement($manufacturers);
+
         return [
             'name' => $name,
             'slug' => $this->generateUniqueSlug($name),
@@ -43,28 +43,26 @@ class ManufacturerFactory extends Factory
             'banner' => $this->faker->optional()->imageUrl(800, 200, 'business'),
             'meta_title' => $this->faker->optional()->sentence(6),
             'meta_description' => $this->faker->optional()->sentence(12),
-            'is_pushed' => $this->faker->boolean(60),
+            'pushed' => $this->faker->boolean(60),
             'website' => $this->generateWebsite($name),
             'total_reviews' => $this->faker->numberBetween(0, 1000),
             'products_count' => $this->faker->numberBetween(10, 500),
             'average_rating' => $this->faker->optional()->randomFloat(1, 3.0, 5.0),
-            'status_id' => $this->faker->randomElement([1, 1, 1, 2]), // 75% active, 25% inactive
-            'created_by' => $this->faker->optional()->numberBetween(1, 100),
-            'updated_by' => $this->faker->optional()->numberBetween(1, 100),
+            'status_id' => $this->faker->randomElement([2, 2, 2, 2]), // 75% active, 25% inactive
         ];
     }
 
     public function realManufacturer(): static
     {
         return $this->state(function () {
-            $name = $this->faker->randomElement(self::$realManufacturers);
-            
+            $name = $this->faker->unique()->randomElement(self::$realManufacturers);
+
             return [
                 'name' => $name,
                 'slug' => $this->generateUniqueSlug($name),
                 'description' => $this->generateManufacturerDescription($name, true),
                 'website' => $this->generateWebsite($name),
-                'is_pushed' => true, // Real manufacturers are typically pushed
+                'pushed' => true, // Real manufacturers are typically pushed
             ];
         });
     }
@@ -72,14 +70,14 @@ class ManufacturerFactory extends Factory
     public function fictionalManufacturer(): static
     {
         return $this->state(function () {
-            $name = $this->faker->randomElement(self::$fictionalManufacturers);
-            
+            $name = $this->faker->unique()->randomElement(self::$fictionalManufacturers);
+
             return [
                 'name' => $name,
                 'slug' => $this->generateUniqueSlug($name),
                 'description' => $this->generateManufacturerDescription($name, false),
                 'website' => $this->generateWebsite($name),
-                'is_pushed' => $this->faker->boolean(30), // Fictional manufacturers less likely pushed
+                'pushed' => $this->faker->boolean(30), // Fictional manufacturers less likely pushed
             ];
         });
     }
@@ -123,7 +121,7 @@ class ManufacturerFactory extends Factory
         }
 
         return $this->faker->randomElement([
-            'United States', 'Canada', 'Germany', 'United Kingdom', 'Japan', 
+            'United States', 'Canada', 'Germany', 'United Kingdom', 'Japan',
             'South Korea', 'Taiwan', 'Italy', 'France', 'Netherlands'
         ]);
     }
@@ -142,7 +140,7 @@ class ManufacturerFactory extends Factory
             'Chicago, IL', 'Houston, TX', 'Phoenix, AZ', 'Denver, CO', 'Atlanta, GA',
             'Toronto, ON', 'Munich, Germany', 'London, UK', 'Tokyo, Japan', 'Seoul, South Korea'
         ];
-        
+
         return $this->faker->randomElement($cities);
     }
 

@@ -22,7 +22,7 @@ return new class extends Migration
             $table->boolean('pushed')->default(false);
             $table->string('meta_title')->nullable();
             $table->string('meta_description')->nullable();
-            $table->foreignId('status_id')->default(1)->constrained('ioa_statuses')->onDelete('restrict');
+            $table->foreignId('status_id')->constrained('ioa_statuses')->onDelete('restrict');
             $table->integer('products_count')->default(0);
             $table->timestamps();
         });

@@ -30,10 +30,10 @@ class BrandFactory extends Factory
 
     public function definition(): array
     {
-        $name = $this->faker->randomElement(self::$toolBrands);
+        $name = $this->faker->unique()->randomElement(self::$toolBrands);
 
         return [
-            'manufacturer_id' => Manufacturer::factory(),
+            'manufacturer_id' => null, // Will be set by the caller
             'name' => $name,
             'slug' => $this->generateUniqueSlug($name),
             'logo' => $this->faker->optional()->imageUrl(200, 100, 'business'),
@@ -50,9 +50,7 @@ class BrandFactory extends Factory
             'popular_items' => $this->faker->optional()->sentence(8),
             'new_items' => $this->faker->optional()->sentence(8),
             'domain_id' => $this->faker->optional()->numberBetween(1, 10),
-            'status_id' => $this->faker->randomElement([1, 1, 1, 2]), // 75% active, 25% inactive
-            'created_by' => $this->faker->optional()->numberBetween(1, 100),
-            'updated_by' => $this->faker->optional()->numberBetween(1, 100),
+            'status_id' => $this->faker->randomElement([2, 2, 2, 2]), // 75% active, 25% inactive
         ];
     }
 
