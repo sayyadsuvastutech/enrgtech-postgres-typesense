@@ -31,7 +31,7 @@ class extends Component {
     public ?float $maxPrice = null;
 
     #[\Livewire\Attributes\Url]
-    public string $sortBy = 'relevance';
+    public string $sortBy = 'newest';
 
     #[\Livewire\Attributes\Url]
     public string $sortOrder = 'desc';
