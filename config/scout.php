@@ -183,32 +183,137 @@ return [
         ],
         // 'max_total_results' => env('TYPESENSE_MAX_TOTAL_RESULTS', 1000),
         'model-settings' => [
-             Product::class => [
-                 'collection-schema' => [
-                     'fields' => [
-                         [
-                             'name' => 'id',
-                             'type' => 'string',
-                         ],
-                         [
-                             'name' => 'title',
-                             'type' => 'string',
-                         ],
-                         [
-                             'name' => 'description',
-                             'type' => 'string',
-                         ],
-                         [
-                             'name' => 'created_at',
-                             'type' => 'int64',
-                         ],
-                     ],
-                     'default_sorting_field' => 'created_at',
-                 ],
-                 'search-parameters' => [
-                     'query_by' => 'title,description'
-                 ],
-             ],
+            Product::class => [
+                'collection-schema' => [
+                    'fields' => [
+                        [
+                            'name' => 'id',
+                            'type' => 'string',
+                        ],
+                        [
+                            'name' => 'title',
+                            'type' => 'string',
+                        ],
+                        [
+                            'name' => 'name',
+                            'type' => 'string',
+                        ],
+                        [
+                            'name' => 'pnum',
+                            'type' => 'string',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'mf_pnum',
+                            'type' => 'string',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'description',
+                            'type' => 'string',
+                        ],
+                        [
+                            'name' => 'category_id',
+                            'type' => 'int32',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'category_name',
+                            'type' => 'string',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'manufacturer_id',
+                            'type' => 'int32',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'manufacturer_name',
+                            'type' => 'string',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'brand_id',
+                            'type' => 'int32',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'brand_name',
+                            'type' => 'string',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'price',
+                            'type' => 'float',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'in_stock',
+                            'type' => 'bool',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'stock_quantity',
+                            'type' => 'int32',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'is_rohs_compliant',
+                            'type' => 'bool',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'average_rating',
+                            'type' => 'float',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'total_reviews',
+                            'type' => 'int32',
+                        ],
+                        [
+                            'name' => 'breadcrumb',
+                            'type' => 'string',
+                        ],
+                        [
+                            'name' => 'attributes',
+                            'type' => 'string[]',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'searchable_attributes',
+                            'type' => 'string',
+                        ],
+                        [
+                            'name' => 'sources',
+                            'type' => 'string[]',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'image_url',
+                            'type' => 'string',
+                        ],
+                        [
+                            'name' => 'created_at',
+                            'type' => 'int64',
+                        ],
+                        [
+                            'name' => 'updated_at',
+                            'type' => 'int64',
+                        ],
+                    ],
+                    'default_sorting_field' => 'created_at',
+                ],
+                'search-parameters' => [
+                    'query_by' => 'title,name,pnum,mf_pnum,description,category_name,manufacturer_name,brand_name,breadcrumb,searchable_attributes',
+                    'query_by_weights' => '4,4,3,3,2,1,1,1,1,1',
+                    'prefix' => 'true,true,true,true,false,false,false,false,false,false',
+                    'infix' => 'off,off,fallback,fallback,fallback,fallback,fallback,fallback,fallback,fallback',
+                    'typo_tokens_threshold' => 1,
+                    'drop_tokens_threshold' => 1,
+                    'num_typos' => 2,
+                ],
+            ],
         ],
     ],
 

@@ -2,19 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 use Laravel\Scout\Searchable;
 
 class Product extends Model
 {
-//    use Searchable;
-
     use HasFactory;
+    use Searchable;
 
     protected $table = 'ioa_products';
 
@@ -60,18 +58,93 @@ class Product extends Model
     }
 
     /**
+     * Get the name of the index associated with the model.
+     */
+    public function searchableAs(): string
+    {
+        $environment = config('app.env', 'local');
+
+        // Check if custom index name is configured
+        $customIndexName = config("typesense.indexes.products.{$environment}");
+
+        if ($customIndexName) {
+            return $customIndexName;
+        }
+
+        // Fallback to default naming strategy
+        $strategy = config('typesense.naming_strategy', 'environment');
+        $prefix = config('typesense.prefix', '');
+        $suffix = config('typesense.suffix', '');
+
+        switch ($strategy) {
+            case 'prefix':
+                return $prefix.'products'.$suffix;
+
+            case 'custom':
+                return config('scout.prefix', '').'products_'.$environment;
+
+            case 'environment':
+            default:
+                return "products_{$environment}";
+        }
+    }
+
+    /**
      * Get the indexable data array for the model.
      *
      * @return array<string, mixed>
      */
     public function toSearchableArray(): array
     {
-        return array_merge($this->toArray(), [
-            'id' => (string)$this->id,
-            'title' => (string)$this->title,
-            'description' => (string)$this->description,
-            'created_at' => $this->created_at->timestamp,
+        // Ensure relationships are loaded to avoid N+1 queries
+        $this->loadMissing([
+            'category', 'manufacturer', 'brand', 'attributes',
+            'prices', 'quantities', 'images',
         ]);
+
+        // Extract attributes for searching
+        $attributesList = [];
+        $searchableAttributes = [];
+
+        foreach ($this->attributes as $attr) {
+            if (isset($attr->attributes) && is_array($attr->attributes)) {
+                foreach ($attr->attributes as $key => $value) {
+                    $attributesList[] = "{$key}:{$value}";
+                    $searchableAttributes[] = "{$key} {$value}";
+                }
+            }
+        }
+
+        // Get sources
+        $sources = $this->prices->pluck('source_name')->unique()->filter()->values()->toArray();
+
+        return [
+            'id' => (string) $this->id,
+            'title' => (string) ($this->title ?? ''),
+            'name' => (string) ($this->name ?? ''),
+            'pnum' => (string) ($this->pnum ?? ''),
+            'mf_pnum' => (string) ($this->mf_pnum ?? ''),
+            'description' => (string) ($this->description ?? ''),
+            'category_id' => (int) ($this->category_id ?? 0),
+            'category_name' => (string) ($this->category_name ?? $this->category?->name ?? ''),
+            'manufacturer_id' => (int) ($this->manufacturer_id ?? 0),
+            'manufacturer_name' => (string) ($this->manufacturer_name ?? $this->manufacturer?->name ?? ''),
+            'brand_id' => (int) ($this->brand_id ?? 0),
+            'brand_name' => (string) ($this->brand_name ?? $this->brand?->name ?? ''),
+            'price' => (float) $this->price,
+            'in_stock' => $this->isInStock(),
+            'stock_quantity' => (int) $this->stock_quantity,
+            'is_rohs_compliant' => (bool) ($this->is_rohs_compliant ?? false),
+            'average_rating' => (float) ($this->average_rating ?? 0.0),
+            'total_reviews' => (int) ($this->total_reviews ?? 0),
+            'breadcrumb' => (string) ($this->breadcrumb ?? ''),
+            'attributes' => $attributesList,
+            'searchable_attributes' => implode(' ', $searchableAttributes),
+            'sources' => $sources,
+            'image_url' => (string) ($this->primary_image ?? ''),
+            'created_at' => $this->created_at?->timestamp,
+            'updated_at' => $this->updated_at?->timestamp,
+        ];
     }
 
     public function category(): BelongsTo
@@ -149,6 +222,7 @@ class Product extends Model
                 }
             });
         }
+
         return $query;
     }
 
@@ -205,7 +279,7 @@ class Product extends Model
      */
     public function scopeSearch2(Builder $query, string $term): Builder
     {
-        $tsquery = implode(' & ', array_map(fn($t) => $t . ':*', explode(' ', $term)));
+        $tsquery = implode(' & ', array_map(fn ($t) => $t.':*', explode(' ', $term)));
         $exactMatch = "%$term%";
 
         return $query->fromSub(function ($subQuery) use ($tsquery, $term, $exactMatch) {
@@ -251,13 +325,13 @@ class Product extends Model
         return $query->orderBy('created_at', 'desc')->limit($limit);
     }
 
-
     public function isInStock(): bool
     {
         $totalStock = 0;
         foreach ($this->quantities as $quantity) {
-            $totalStock += (int)$quantity->quantity;
+            $totalStock += (int) $quantity->quantity;
         }
+
         return $totalStock > 0;
     }
 
@@ -270,8 +344,9 @@ class Product extends Model
     {
         $totalStock = 0;
         foreach ($this->quantities as $quantity) {
-            $totalStock += (int)$quantity->quantity;
+            $totalStock += (int) $quantity->quantity;
         }
+
         return $totalStock;
     }
 
@@ -284,11 +359,11 @@ class Product extends Model
             $currentPrice = null;
 
             // Handle pricing ranges structure
-            if (is_array($priceRanges) && !empty($priceRanges)) {
+            if (is_array($priceRanges) && ! empty($priceRanges)) {
                 // Get the first (lowest quantity) price range
                 $firstRange = $priceRanges[0] ?? null;
                 if ($firstRange && isset($firstRange['price'])) {
-                    $currentPrice = (float)$firstRange['price'];
+                    $currentPrice = (float) $firstRange['price'];
                 }
             }
 
@@ -296,6 +371,7 @@ class Product extends Model
                 $lowestPrice = $currentPrice;
             }
         }
+
         return $lowestPrice ?? 0.00;
     }
 
@@ -337,6 +413,7 @@ class Product extends Model
                 $allAttributes = array_merge($allAttributes, $attribute->attributes);
             }
         }
+
         return $allAttributes;
     }
 
@@ -346,6 +423,7 @@ class Product extends Model
         if ($firstImage && isset($firstImage->images[0]['path'])) {
             return $firstImage->images[0]['path'];
         }
+
         return null;
     }
 }
