@@ -142,8 +142,8 @@ class Product extends Model
             'searchable_attributes' => implode(' ', $searchableAttributes),
             'sources' => $sources,
             'image_url' => (string) ($this->primary_image ?? ''),
-            'created_at' => $this->created_at?->timestamp,
-            'updated_at' => $this->updated_at?->timestamp,
+            'created_at' => $this->created_at->timestamp ?? 0,
+            'updated_at' => $this->updated_at->timestamp ?? 0,
         ];
     }
 
