@@ -18,17 +18,7 @@ return new class extends Migration
             $table->jsonb('documents_data')->nullable(); // JSON structure for documents array
             $table->timestamps();
 
-            // Indexes for performance
-            $table->index(['product_id', 'source_name']);
-            $table->index('product_id');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('ioa_product_documents');
-    }
 };

@@ -19,6 +19,60 @@ class ProductSearchService
 
     public function search(array $params)
     {
+        if (!empty($params['search'])) {
+            $start = microtime(true);
+            try {
+                $scoutBuilder = Product::search($params['search']);
+
+                // Apply filters to Typesense search
+                if (!empty($params['categories']) && is_array($params['categories'])) {
+                    $scoutBuilder->whereIn('category_id', array_filter($params['categories']));
+                }
+
+                if (!empty($params['brands']) && is_array($params['brands'])) {
+                    $scoutBuilder->whereIn('brand_id', array_filter($params['brands']));
+                }
+
+                if (!empty($params['manufacturers']) && is_array($params['manufacturers'])) {
+                    $scoutBuilder->whereIn('manufacturer_id', array_filter($params['manufacturers']));
+                }
+
+                if (isset($params['min_price']) && $params['min_price'] !== null) {
+                    $scoutBuilder->where('price', '>= ' . $params['min_price']);
+                }
+
+                if (isset($params['max_price']) && $params['max_price'] !== null) {
+                    $scoutBuilder->where('price', '<= ' . $params['max_price']);
+                }
+
+                if (!empty($params['in_stock'])) {
+                    $scoutBuilder->where('in_stock', true);
+                }
+
+                $search = $scoutBuilder->take(1000)->get();
+
+                $end = microtime(true);
+                $time = $end - $start;
+
+                if ($time > 2 || $search->isEmpty()) {
+                    throw new \Exception('Fallback to PGSQL search');
+                }
+
+                $ids = $search->pluck('id')->toArray();
+                $orderIds = implode(',', $ids);
+
+                $query = Product::whereIn('id', $ids)
+                    ->with(['images', 'quantities', 'category', 'prices', 'brand', 'manufacturer', 'attributes'])
+                    ->orderByRaw("array_position(ARRAY[{$orderIds}]::bigint[], id)");
+
+                return $query->paginate($params['per_page'] ?? 20);
+            } catch (\Exception $e) {
+                // Fallback to PGSQL search
+                $query = $this->buildOptimizedQuery($params);
+                return $query->paginate($params['per_page'] ?? 20);
+            }
+        }
+
         $query = $this->buildOptimizedQuery($params);
 
         return $query->simplePaginate(
@@ -31,9 +85,7 @@ class ProductSearchService
     {
         $query = Product::query()
             ->with(['category', 'brand', 'manufacturer', 'prices', 'quantities', 'attributes', 'images'])
-            ->where('status_id', 2); // Assuming status_id 1 is active
-
-
+            ->where('status_id', 2); // Assuming status_id 2 is active
 
         // Apply category filter
         if (!empty($params['categories']) && is_array($params['categories'])) {
@@ -105,7 +157,7 @@ class ProductSearchService
 
             default:
                 // Standard semantic search
-                return $query->search($searchTerm);
+                return $query->search2($searchTerm);
         }
     }
 

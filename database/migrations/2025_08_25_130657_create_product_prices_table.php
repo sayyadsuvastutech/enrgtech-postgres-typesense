@@ -22,11 +22,4 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('ioa_product_prices');
-    }
 };

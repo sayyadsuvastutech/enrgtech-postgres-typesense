@@ -27,14 +27,9 @@ return new class extends Migration
             $table->decimal('average_rating', 3, 2)->nullable();
             $table->foreignId('status_id')->default(2)->constrained('ioa_statuses')->onDelete('restrict');
             $table->timestamps();
-        });
-    }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('ioa_manufacturers');
+            $table->index(['id', 'name'], 'ioa_manufacturers_id_name_join_idx');
+
+        });
     }
 };

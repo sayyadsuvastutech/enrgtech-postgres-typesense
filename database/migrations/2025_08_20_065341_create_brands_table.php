@@ -35,14 +35,9 @@ return new class extends Migration
 
             // Foreign key constraints
             $table->foreign('manufacturer_id')->references('id')->on('ioa_manufacturers')->onDelete('restrict');
-        });
-    }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('ioa_brands');
+            $table->index(['id', 'name'], 'ioa_brands_id_name_join_idx');
+
+        });
     }
 };

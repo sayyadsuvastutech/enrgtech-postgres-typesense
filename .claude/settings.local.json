@@ -7,7 +7,8 @@
       "Bash(php artisan make:factory:*)",
       "Bash(php artisan migrate:*)",
       "Bash(php artisan:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(composer:*)"
     ],
     "deny": [],
     "ask": []

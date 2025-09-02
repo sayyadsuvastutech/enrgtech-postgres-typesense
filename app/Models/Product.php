@@ -8,9 +8,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Laravel\Scout\Searchable;
 
 class Product extends Model
 {
+//    use Searchable;
+
     use HasFactory;
 
     protected $table = 'ioa_products';
@@ -54,6 +57,21 @@ class Product extends Model
             'sess_insrt_id' => 'integer',
             'sess_updt_id' => 'integer',
         ];
+    }
+
+    /**
+     * Get the indexable data array for the model.
+     *
+     * @return array<string, mixed>
+     */
+    public function toSearchableArray(): array
+    {
+        return array_merge($this->toArray(), [
+            'id' => (string)$this->id,
+            'title' => (string)$this->title,
+            'description' => (string)$this->description,
+            'created_at' => $this->created_at->timestamp,
+        ]);
     }
 
     public function category(): BelongsTo
@@ -185,7 +203,7 @@ class Product extends Model
     /**
      * Optimized semantic search with typo tolerance using CTE, FTS, and trigram
      */
-    public function scopeSearch(Builder $query, string $term): Builder
+    public function scopeSearch2(Builder $query, string $term): Builder
     {
         $tsquery = implode(' & ', array_map(fn($t) => $t . ':*', explode(' ', $term)));
         $exactMatch = "%$term%";
@@ -238,7 +256,7 @@ class Product extends Model
     {
         $totalStock = 0;
         foreach ($this->quantities as $quantity) {
-            $totalStock += (int) $quantity->quantity;
+            $totalStock += (int)$quantity->quantity;
         }
         return $totalStock > 0;
     }
@@ -252,7 +270,7 @@ class Product extends Model
     {
         $totalStock = 0;
         foreach ($this->quantities as $quantity) {
-            $totalStock += (int) $quantity->quantity;
+            $totalStock += (int)$quantity->quantity;
         }
         return $totalStock;
     }
@@ -270,7 +288,7 @@ class Product extends Model
                 // Get the first (lowest quantity) price range
                 $firstRange = $priceRanges[0] ?? null;
                 if ($firstRange && isset($firstRange['price'])) {
-                    $currentPrice = (float) $firstRange['price'];
+                    $currentPrice = (float)$firstRange['price'];
                 }
             }
 

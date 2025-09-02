@@ -52,14 +52,6 @@ return new class extends Migration
         });
 
         // Add tsvector column for full-text search using raw SQL
-        DB::statement('ALTER TABLE ioa_products ADD COLUMN search_vector tsvector');
-    }
-
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('ioa_products');
+        DB::statement('ALTER TABLE ioa_products ADD COLUMN search_vector tsvector NULL');
     }
 };

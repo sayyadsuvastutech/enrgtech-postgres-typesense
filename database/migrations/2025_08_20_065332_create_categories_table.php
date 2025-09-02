@@ -25,14 +25,10 @@ return new class extends Migration
             $table->foreignId('status_id')->constrained('ioa_statuses')->onDelete('restrict');
             $table->integer('products_count')->default(0);
             $table->timestamps();
+
+            $table->index(['id', 'name'], 'ioa_categories_id_name_join_idx');
+
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('ioa_categories');
-    }
 };
