@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Category;
 use App\Models\Manufacturer;
+use App\Models\Status;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -15,6 +16,23 @@ class ProductFactory extends Factory
         $productNumber = $this->generateProductNumber();
         $title = $this->generateProductTitle($name);
         $mfPnum = $this->faker->optional()->bothify('MPN-####');
+
+        // Create required statuses first
+        $inactiveStatus = Status::updateOrCreate([
+            'name' => 'Inactive',
+            'slug' => 'inactive',
+            'description' => 'Active status',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $activeStatus = Status::updateOrCreate([
+            'name' => 'Active',
+            'slug' => 'active',
+            'description' => 'Inactive status',
+            'is_active' => false,
+            'sort_order' => 2,
+        ]);
 
         return [
             'name' => $name,
@@ -37,7 +55,7 @@ class ProductFactory extends Factory
             'total_reviews' => $this->faker->numberBetween(0, 500),
             'average_rating' => $this->faker->optional()->randomFloat(1, 1, 5),
             'video_url' => $this->faker->optional()->url(),
-            'status_id' => 2, // 80% active, 20% inactive
+            'status_id' => $activeStatus->id, // 80% active, 20% inactive
             'is_updated' => $this->faker->boolean(30),
             'sess_insrt_id' => $this->faker->randomNumber(5),
             'sess_updt_id' => $this->faker->randomNumber(5),

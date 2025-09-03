@@ -328,11 +328,20 @@ class Product extends Model
     public function isInStock(): bool
     {
         $totalStock = 0;
+        $hasAvailableStock = false;
+        
         foreach ($this->quantities as $quantity) {
-            $totalStock += (int) $quantity->quantity;
+            $quantityAmount = (int) $quantity->quantity;
+            $totalStock += $quantityAmount;
+            
+            // Check if this quantity record indicates availability
+            if ($quantityAmount > 0 && $quantity->availability_status !== 'out_of_stock') {
+                $hasAvailableStock = true;
+            }
         }
 
-        return $totalStock > 0;
+        // Product is in stock if it has both quantity > 0 AND at least one available quantity record
+        return $totalStock > 0 && $hasAvailableStock;
     }
 
     public function isActive(): bool

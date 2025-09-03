@@ -89,7 +89,7 @@ class ProductSearchService
                 });
 
             // Create paginated result
-            $perPage = $params['per_page'] ?? 20;
+            $perPage = $params['per_page'] ?? 200;
             $page = $params['page'] ?? 1;
             $total = $typesenseResults['found'] ?? $products->count();
 
@@ -137,7 +137,7 @@ class ProductSearchService
         $this->applyTypesenseFilters($scoutBuilder, $params);
 
         // Set pagination
-        $perPage = $params['per_page'] ?? 20;
+        $perPage = $params['per_page'] ?? 200;
         $page = $params['page'] ?? 1;
         $scoutBuilder->take($perPage);
 
@@ -159,7 +159,7 @@ class ProductSearchService
             'max_facet_values' => 100,
             'facet_query' => '',
             'page' => $params['page'] ?? 1,
-            'per_page' => $params['per_page'] ?? 20,
+            'per_page' => $params['per_page'] ?? 200,
         ];
 
         // Advanced search configurations
@@ -296,7 +296,7 @@ class ProductSearchService
     {
         $query = $this->buildOptimizedQuery($params);
 
-        return $query->paginate($params['per_page'] ?? 20);
+        return $query->paginate($params['per_page'] ?? 200);
     }
 
     private function performBasicSearch(array $params): LengthAwarePaginator
@@ -309,7 +309,7 @@ class ProductSearchService
             $query->where('name', 'ILIKE', '%'.$params['search'].'%');
         }
 
-        return $query->simplePaginate($params['per_page'] ?? 20);
+        return $query->simplePaginate($params['per_page'] ?? 200);
     }
 
     private function logSearchPerformance(string $engine, float $startTime, int $resultCount): void
@@ -474,7 +474,7 @@ class ProductSearchService
         if (! empty($params['in_stock'])) {
             $query->whereHas('quantities', function ($q) {
                 $q->where('quantity', '>', 0)
-                    ->orWhere('availability_status', '!=', 'out_of_stock');
+                    ->where('availability_status', '!=', 'out_of_stock');
             });
         }
 
