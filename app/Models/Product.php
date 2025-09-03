@@ -118,6 +118,10 @@ class Product extends Model
         // Get sources
         $sources = $this->prices->pluck('source_name')->unique()->filter()->values()->toArray();
 
+        // Calculate price range for ecommerce faceting
+        $price = (float) $this->price;
+        $priceRange = $this->calculatePriceRange($price);
+
         return [
             'id' => (string) $this->id,
             'title' => (string) ($this->title ?? ''),
@@ -131,7 +135,8 @@ class Product extends Model
             'manufacturer_name' => (string) ($this->manufacturer_name ?? $this->manufacturer?->name ?? ''),
             'brand_id' => (int) ($this->brand_id ?? 0),
             'brand_name' => (string) ($this->brand_name ?? $this->brand?->name ?? ''),
-            'price' => (float) $this->price,
+            'price' => $price,
+            'price_range' => $priceRange,
             'in_stock' => $this->isInStock(),
             'stock_quantity' => (int) $this->stock_quantity,
             'is_rohs_compliant' => (bool) ($this->is_rohs_compliant ?? false),
@@ -434,5 +439,26 @@ class Product extends Model
         }
 
         return null;
+    }
+
+    private function calculatePriceRange(float $price): string
+    {
+        $priceRanges = [
+            ['min' => 0, 'max' => 10, 'value' => '0-10'],
+            ['min' => 10, 'max' => 50, 'value' => '10-50'],
+            ['min' => 50, 'max' => 100, 'value' => '50-100'],
+            ['min' => 100, 'max' => 250, 'value' => '100-250'],
+            ['min' => 250, 'max' => 500, 'value' => '250-500'],
+            ['min' => 500, 'max' => 1000, 'value' => '500-1000'],
+            ['min' => 1000, 'max' => null, 'value' => '1000+'],
+        ];
+        
+        foreach ($priceRanges as $range) {
+            if ($price >= $range['min'] && ($range['max'] === null || $price < $range['max'])) {
+                return $range['value'];
+            }
+        }
+        
+        return '1000+'; // Fallback for very high prices
     }
 }

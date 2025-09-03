@@ -7,6 +7,9 @@ Volt::route('/', 'products.search')->name('home');
 Volt::route('/products', 'products.search')->name('products.search');
 Volt::route('/products/{product}', 'products.show')->name('products.show');
 
+// Ecommerce Search Routes
+Volt::route('/ecommerce-search', 'ecommerce-search')->name('ecommerce.search');
+
 Route::view('dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
