@@ -412,14 +412,26 @@ class extends Component {
                                     
                                     <!-- Product Name -->
                                     <h3 class="font-semibold text-gray-900 line-clamp-2 text-sm group-hover:text-blue-600 transition-colors">
-                                        {!! $product['highlights']['name'][0] ?? $product['name'] !!}
+                                        {!! $product['highlights']['name'][0] ?? $product['highlights']['title'][0] ?? $product['name'] !!}
                                     </h3>
+                                    
+                                    <!-- Product Description (if highlighted) -->
+                                    @if(!empty($product['highlights']['description']))
+                                        <p class="text-xs text-gray-600 line-clamp-2">
+                                            {!! $product['highlights']['description'][0] !!}
+                                        </p>
+                                    @endif
                                     
                                     <!-- Product Numbers -->
                                     <div class="space-y-1">
                                         @if($product['pnum'])
                                             <div class="text-xs text-gray-600 font-mono">
-                                                SKU: {{ $product['pnum'] }}
+                                                SKU: {!! $product['highlights']['pnum'][0] ?? $product['pnum'] !!}
+                                            </div>
+                                        @endif
+                                        @if(!empty($product['highlights']['mf_pnum']))
+                                            <div class="text-xs text-gray-600 font-mono">
+                                                MFG: {!! $product['highlights']['mf_pnum'][0] !!}
                                             </div>
                                         @endif
                                         <div class="text-xs text-gray-500 font-mono">

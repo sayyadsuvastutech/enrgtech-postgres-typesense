@@ -65,7 +65,7 @@ class TypesenseEcommerceSearchService
             'max_facet_values' => 100,
             'per_page' => $params['per_page'] ?? 24,
             'page' => $params['page'] ?? 1,
-            'highlight_fields' => 'name,title,description',
+            'highlight_fields' => 'name,title,description,pnum,mf_pnum',
             'highlight_start_tag' => '<mark class="bg-yellow-200">',
             'highlight_end_tag' => '</mark>',
             'snippet_threshold' => 30,
