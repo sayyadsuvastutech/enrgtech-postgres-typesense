@@ -1,0 +1,26 @@
+docker ps
+docker ps -a
+
+docker images
+
+docker stop typesense
+docker rm typesense
+
+
+docker run -d --name typesense \
+  -p 8108:8108 \
+  -v C:\typesense-data:/data \
+  typesense/typesense:29.0 \
+  --data-dir /data \
+  --api-key=xyz \
+  --enable-cors
+
+
+
+docker run -d --name typesense-dashboard `
+  -p 8109:80 `
+  -e TYPESENSE_API_KEY=xyz `
+  -e TYPESENSE_HOST=host.docker.internal `
+  -e TYPESENSE_PORT=8108 `
+  -e TYPESENSE_PROTOCOL=http `
+  bfritscher/typesense-dashboard:latest

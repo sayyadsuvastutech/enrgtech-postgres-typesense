@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Laravel\Scout\Searchable;
 
 class Product extends Model
@@ -165,6 +166,11 @@ class Product extends Model
     public function sources(): HasMany
     {
         return $this->hasMany(ProductSource::class);
+    }
+
+    public function embedding(): HasOne
+    {
+        return $this->hasOne(Embedding::class);
     }
 
     public function attributes(): HasMany
@@ -334,11 +340,11 @@ class Product extends Model
     {
         $totalStock = 0;
         $hasAvailableStock = false;
-        
+
         foreach ($this->quantities as $quantity) {
             $quantityAmount = (int) $quantity->quantity;
             $totalStock += $quantityAmount;
-            
+
             // Check if this quantity record indicates availability
             if ($quantityAmount > 0 && $quantity->availability_status !== 'out_of_stock') {
                 $hasAvailableStock = true;
@@ -452,13 +458,13 @@ class Product extends Model
             ['min' => 500, 'max' => 1000, 'value' => '500-1000'],
             ['min' => 1000, 'max' => null, 'value' => '1000+'],
         ];
-        
+
         foreach ($priceRanges as $range) {
             if ($price >= $range['min'] && ($range['max'] === null || $price < $range['max'])) {
                 return $range['value'];
             }
         }
-        
+
         return '1000+'; // Fallback for very high prices
     }
 }
