@@ -38,6 +38,9 @@ class extends Component {
     #[Url(as: 'page')]
     public int $currentPage = 1;
     
+    #[Url(as: 'ai_search')]
+    public bool $aiSearchEnabled = false;
+    
     public int $perPage = 24;
     public array $searchResults = [];
     public array $facets = [];
@@ -69,6 +72,7 @@ class extends Component {
             
             $params = [
                 'q' => $this->query,
+                'ai_search' => $this->aiSearchEnabled,
                 'category' => $this->selectedCategories,
                 'brand' => $this->selectedBrands,
                 'manufacturer' => $this->selectedManufacturers,
@@ -158,6 +162,12 @@ class extends Component {
         $this->search();
     }
     
+    public function updatedAiSearchEnabled(): void
+    {
+        $this->currentPage = 1;
+        $this->search();
+    }
+    
     public function clearAllFilters(): void
     {
         $this->selectedCategories = [];
@@ -216,6 +226,36 @@ class extends Component {
                             </svg>
                         </button>
                     @endif
+                </div>
+                
+                <!-- AI Search Toggle -->
+                <div class="mt-4 flex justify-center">
+                    <div class="bg-gray-50 rounded-lg p-3">
+                        <label class="flex items-center cursor-pointer">
+                            <div class="relative">
+                                <input type="checkbox" 
+                                       wire:model.live="aiSearchEnabled" 
+                                       class="sr-only">
+                                <div class="block {{ $aiSearchEnabled ? 'bg-gradient-to-r from-purple-600 to-blue-600' : 'bg-gray-300' }} w-14 h-8 rounded-full transition-colors duration-200 ease-in-out"></div>
+                                <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform duration-200 ease-in-out {{ $aiSearchEnabled ? 'transform translate-x-6' : '' }}"></div>
+                            </div>
+                            <div class="ml-3">
+                                <span class="text-sm font-medium {{ $aiSearchEnabled ? 'text-purple-700' : 'text-gray-700' }}">
+                                    {{ $aiSearchEnabled ? 'AI Search' : 'Simple Search' }}
+                                </span>
+                                <div class="text-xs {{ $aiSearchEnabled ? 'text-purple-600' : 'text-gray-500' }}">
+                                    {{ $aiSearchEnabled ? 'Semantic search with nomic-ai' : 'Traditional keyword search' }}
+                                </div>
+                            </div>
+                            @if($aiSearchEnabled)
+                                <div class="ml-2">
+                                    <svg class="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                            @endif
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>

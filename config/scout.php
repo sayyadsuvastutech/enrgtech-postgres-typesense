@@ -294,6 +294,26 @@ return [
                             'type' => 'string',
                         ],
                         [
+                            'name' => 'attribute_types',
+                            'type' => 'string[]',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'searchable_content',
+                            'type' => 'string',
+                        ],
+                        [
+                            'name' => 'price_range',
+                            'type' => 'string',
+                            'facet' => true,
+                        ],
+                        [
+                            'name' => 'embedding_vector',
+                            'type' => 'float[]',
+                            'optional' => true,
+                            'num_dim' => 768,
+                        ],
+                        [
                             'name' => 'created_at',
                             'type' => 'int64',
                         ],

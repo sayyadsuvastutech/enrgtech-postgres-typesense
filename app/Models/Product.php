@@ -100,28 +100,52 @@ class Product extends Model
         // Ensure relationships are loaded to avoid N+1 queries
         $this->loadMissing([
             'category', 'manufacturer', 'brand', 'attributes',
-            'prices', 'quantities', 'images',
+            'prices', 'quantities', 'images', 'embedding',
         ]);
 
-        // Extract attributes for searching
+        // Extract attributes for searching and faceting
         $attributesList = [];
         $searchableAttributes = [];
+        $attributeFacets = [];
 
         foreach ($this->attributes as $attr) {
             if (isset($attr->attributes) && is_array($attr->attributes)) {
                 foreach ($attr->attributes as $key => $value) {
-                    $attributesList[] = "{$key}:{$value}";
-                    $searchableAttributes[] = "{$key} {$value}";
+                    if (! empty($key) && ! empty($value)) {
+                        $attributesList[] = "{$key}:{$value}";
+                        $searchableAttributes[] = "{$key} {$value}";
+                        $attributeFacets[] = $key; // For faceting by attribute types
+                    }
                 }
             }
         }
 
-        // Get sources
+        // Get sources from prices
         $sources = $this->prices->pluck('source_name')->unique()->filter()->values()->toArray();
 
-        // Calculate price range for ecommerce faceting
+        // Calculate stock and pricing data
         $price = (float) $this->price;
-        $priceRange = $this->calculatePriceRange($price);
+        $stockQuantity = (int) $this->stock_quantity;
+        $inStock = $this->isInStock();
+
+        // Prepare searchable text content for AI embeddings
+        $searchableContent = collect([
+            $this->name,
+            $this->title,
+            $this->description,
+            $this->category_name ?? $this->category?->name,
+            $this->brand_name ?? $this->brand?->name,
+            $this->manufacturer_name ?? $this->manufacturer?->name,
+            implode(' ', $searchableAttributes),
+        ])->filter()->implode(' ');
+
+        // Get embedding vector if available
+        $embeddingVector = null;
+        if ($this->embedding && ! empty($this->embedding->vector)) {
+            $embeddingVector = is_string($this->embedding->vector)
+                ? json_decode($this->embedding->vector, true)
+                : $this->embedding->vector;
+        }
 
         return [
             'id' => (string) $this->id,
@@ -137,19 +161,23 @@ class Product extends Model
             'brand_id' => (int) ($this->brand_id ?? 0),
             'brand_name' => (string) ($this->brand_name ?? $this->brand?->name ?? ''),
             'price' => $price,
-            'price_range' => $priceRange,
-            'in_stock' => $this->isInStock(),
-            'stock_quantity' => (int) $this->stock_quantity,
+            'price_range' => $this->calculatePriceRange($price),
+            'in_stock' => $inStock,
+            'stock_quantity' => $stockQuantity,
             'is_rohs_compliant' => (bool) ($this->is_rohs_compliant ?? false),
             'average_rating' => (float) ($this->average_rating ?? 0.0),
             'total_reviews' => (int) ($this->total_reviews ?? 0),
             'breadcrumb' => (string) ($this->breadcrumb ?? ''),
             'attributes' => $attributesList,
+            'attribute_types' => array_unique($attributeFacets),
             'searchable_attributes' => implode(' ', $searchableAttributes),
+            'searchable_content' => $searchableContent,
             'sources' => $sources,
-            'image_url' => (string) ($this->primary_image ?? ''),
+            'image_url' => (string) ($this->primary_image ?? '/images/place_holder.svg'),
             'created_at' => $this->created_at->timestamp ?? 0,
             'updated_at' => $this->updated_at->timestamp ?? 0,
+            // AI embedding vector for semantic search
+            'embedding_vector' => $embeddingVector,
         ];
     }
 

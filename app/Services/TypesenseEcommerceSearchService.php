@@ -3,18 +3,17 @@
 namespace App\Services;
 
 use App\Models\Product;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Laravel\Scout\Builder as ScoutBuilder;
 use Typesense\Client;
-use Typesense\Collection;
 
 class TypesenseEcommerceSearchService
 {
     private Client $typesenseClient;
 
     private const CACHE_TTL = 300; // 5 minutes
+
     private const FACET_CACHE_TTL = 900; // 15 minutes
 
     public function __construct()
@@ -26,7 +25,7 @@ class TypesenseEcommerceSearchService
                     'host' => config('scout.typesense.client-settings.nodes.0.host'),
                     'port' => config('scout.typesense.client-settings.nodes.0.port'),
                     'protocol' => config('scout.typesense.client-settings.nodes.0.protocol'),
-                ]
+                ],
             ],
             'connection_timeout_seconds' => 5,
         ]);
@@ -35,6 +34,15 @@ class TypesenseEcommerceSearchService
     public function search(array $params): array
     {
         try {
+            // Check if AI search is enabled
+            $isAiSearch = $params['ai_search'] ?? false;
+
+            if ($isAiSearch && ! empty($params['q']) && $params['q'] !== '*') {
+                return $this->hybridSearch($params);
+            }
+
+            dd($isAiSearch);
+
             $searchParams = $this->buildEcommerceSearchParams($params);
 
             $collectionName = $this->getCollectionName();
@@ -45,11 +53,182 @@ class TypesenseEcommerceSearchService
         } catch (\Exception $e) {
             Log::error('Typesense ecommerce search error', [
                 'error' => $e->getMessage(),
-                'params' => $params
+                'params' => $params,
             ]);
 
             return $this->getEmptyResults();
         }
+    }
+
+    /**
+     * Performs hybrid search combining semantic (AI) and traditional keyword search
+     */
+    public function hybridSearch(array $params): array
+    {
+        try {
+            $query = $params['q'] ?? '';
+            if (empty($query) || $query === '*') {
+                return $this->search($params); // Fall back to regular search
+            }
+
+            // Get embedding for the search query
+            $queryEmbedding = $this->getQueryEmbedding($query);
+
+            if (! $queryEmbedding) {
+                Log::warning('Failed to get embedding for query, falling back to regular search', ['query' => $query]);
+
+                return $this->search(array_merge($params, ['ai_search' => false]));
+            }
+
+            // Perform vector search with Typesense
+            $vectorSearchParams = $this->buildVectorSearchParams($params, $queryEmbedding);
+            $keywordSearchParams = $this->buildEcommerceSearchParams($params);
+
+            $collectionName = $this->getCollectionName();
+
+            // Execute both searches
+            $vectorResults = $this->typesenseClient->collections[$collectionName]->documents->search($vectorSearchParams);
+            $keywordResults = $this->typesenseClient->collections[$collectionName]->documents->search($keywordSearchParams);
+
+            // Combine and rank results
+            $combinedResults = $this->combineSearchResults($vectorResults, $keywordResults, $params);
+
+            return $this->formatEcommerceResults($combinedResults, $params);
+
+        } catch (\Exception $e) {
+            Log::error('Hybrid search error, falling back to regular search', [
+                'error' => $e->getMessage(),
+                'params' => $params,
+            ]);
+
+            // Fall back to regular search on error
+            return $this->search(array_merge($params, ['ai_search' => false]));
+        }
+    }
+
+    /**
+     * Get embedding for search query using the external embedding API
+     */
+    private function getQueryEmbedding(string $query): ?array
+    {
+        try {
+            $response = Http::timeout(10)->post('http://10.10.10.24:8000/embed', [
+                'text' => $query,
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                return $data['embedding'] ?? null;
+            }
+
+            Log::warning('Embedding API request failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return null;
+
+        } catch (\Exception $e) {
+            Log::error('Error calling embedding API', [
+                'error' => $e->getMessage(),
+                'query' => $query,
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Build search parameters for vector search
+     */
+    private function buildVectorSearchParams(array $params, array $queryEmbedding): array
+    {
+        $searchParams = [
+            'q' => '*',
+            'vector_query' => 'embedding_vector:(['.implode(',', $queryEmbedding).'], k:'.($params['per_page'] ?? 24).')',
+            'facet_by' => 'category_name,brand_name,manufacturer_name,in_stock,is_rohs_compliant,sources,price_range,attribute_types',
+            'max_facet_values' => 100,
+            'per_page' => $params['per_page'] ?? 24,
+            'page' => $params['page'] ?? 1,
+        ];
+
+        // Apply the same filters as regular search
+        $filters = $this->buildEcommerceFilters($params);
+        if (! empty($filters)) {
+            $searchParams['filter_by'] = implode(' && ', $filters);
+        }
+
+        return $searchParams;
+    }
+
+    /**
+     * Combine results from vector and keyword searches with intelligent ranking
+     */
+    private function combineSearchResults(array $vectorResults, array $keywordResults, array $params): array
+    {
+        $vectorHits = $vectorResults['hits'] ?? [];
+        $keywordHits = $keywordResults['hits'] ?? [];
+
+        dd($vectorHits, $keywordHits);
+
+        // Create a map of document IDs to their scores and data
+        $combinedHits = [];
+        $seenIds = [];
+
+        // Process vector search results (semantic similarity)
+        foreach ($vectorHits as $index => $hit) {
+            $docId = $hit['document']['id'];
+            $vectorScore = 1.0 / (1 + $index); // Higher score for higher ranking
+
+            $combinedHits[$docId] = [
+                'document' => $hit['document'],
+                'vector_score' => $vectorScore,
+                'keyword_score' => 0,
+                'highlights' => [],
+                'text_match_info' => $hit['text_match_info'] ?? [],
+            ];
+            $seenIds[] = $docId;
+        }
+
+        // Process keyword search results
+        foreach ($keywordHits as $index => $hit) {
+            $docId = $hit['document']['id'];
+            $keywordScore = 1.0 / (1 + $index);
+
+            if (isset($combinedHits[$docId])) {
+                // Document found in both searches
+                $combinedHits[$docId]['keyword_score'] = $keywordScore;
+                $combinedHits[$docId]['highlights'] = $hit['highlights'] ?? [];
+            } else {
+                // Document only found in keyword search
+                $combinedHits[$docId] = [
+                    'document' => $hit['document'],
+                    'vector_score' => 0,
+                    'keyword_score' => $keywordScore,
+                    'highlights' => $hit['highlights'] ?? [],
+                    'text_match_info' => $hit['text_match_info'] ?? [],
+                ];
+            }
+        }
+
+        // Calculate combined scores and sort
+        foreach ($combinedHits as $docId => &$hit) {
+            // Weighted combination: 60% semantic, 40% keyword
+            $hit['combined_score'] = (0.6 * $hit['vector_score']) + (0.4 * $hit['keyword_score']);
+        }
+
+        // Sort by combined score
+        uasort($combinedHits, function ($a, $b) {
+            return $b['combined_score'] <=> $a['combined_score'];
+        });
+
+        // Rebuild the search results structure
+        $combinedResults = $keywordResults; // Use keyword results as base for facets and pagination
+        $combinedResults['hits'] = array_values($combinedHits);
+        $combinedResults['found'] = count($combinedHits);
+
+        return $combinedResults;
     }
 
     private function buildEcommerceSearchParams(array $params): array
@@ -78,7 +257,7 @@ class TypesenseEcommerceSearchService
 
         // Apply filters
         $filters = $this->buildEcommerceFilters($params);
-        if (!empty($filters)) {
+        if (! empty($filters)) {
             $searchParams['filter_by'] = implode(' && ', $filters);
         }
 
@@ -90,11 +269,11 @@ class TypesenseEcommerceSearchService
         $filters = [];
 
         // Category filter
-        if (!empty($params['category'])) {
+        if (! empty($params['category'])) {
             if (is_array($params['category'])) {
                 $categories = array_filter($params['category']);
-                if (!empty($categories)) {
-                    $categoryList = implode(',', array_map(fn($cat) => "'$cat'", $categories));
+                if (! empty($categories)) {
+                    $categoryList = implode(',', array_map(fn ($cat) => "'$cat'", $categories));
                     $filters[] = "category_name:[$categoryList]";
                 }
             } else {
@@ -103,11 +282,11 @@ class TypesenseEcommerceSearchService
         }
 
         // Brand filter
-        if (!empty($params['brand'])) {
+        if (! empty($params['brand'])) {
             if (is_array($params['brand'])) {
                 $brands = array_filter($params['brand']);
-                if (!empty($brands)) {
-                    $brandList = implode(',', array_map(fn($brand) => "'$brand'", $brands));
+                if (! empty($brands)) {
+                    $brandList = implode(',', array_map(fn ($brand) => "'$brand'", $brands));
                     $filters[] = "brand_name:[$brandList]";
                 }
             } else {
@@ -124,11 +303,11 @@ class TypesenseEcommerceSearchService
         }
 
         // Manufacturer filter
-        if (!empty($params['manufacturer'])) {
+        if (! empty($params['manufacturer'])) {
             if (is_array($params['manufacturer'])) {
                 $manufacturers = array_filter($params['manufacturer']);
-                if (!empty($manufacturers)) {
-                    $manufacturerList = implode(',', array_map(fn($mfr) => "'$mfr'", $manufacturers));
+                if (! empty($manufacturers)) {
+                    $manufacturerList = implode(',', array_map(fn ($mfr) => "'$mfr'", $manufacturers));
                     $filters[] = "manufacturer_name:[$manufacturerList]";
                 }
             } else {
@@ -137,9 +316,9 @@ class TypesenseEcommerceSearchService
         }
 
         // Attributes filter (assuming attributes are stored as key-value pairs)
-        if (!empty($params['attributes']) && is_array($params['attributes'])) {
+        if (! empty($params['attributes']) && is_array($params['attributes'])) {
             foreach ($params['attributes'] as $key => $value) {
-                if (!empty($value) && !empty($key)) {
+                if (! empty($value) && ! empty($key)) {
                     $filters[] = "attributes:='{$key}:{$value}'";
                 }
             }
@@ -180,7 +359,7 @@ class TypesenseEcommerceSearchService
         $facets = [];
 
         // Extract product data
-        if (!empty($searchResults['hits'])) {
+        if (! empty($searchResults['hits'])) {
             foreach ($searchResults['hits'] as $hit) {
                 $document = $hit['document'];
                 $highlights = $hit['highlights'] ?? [];
@@ -199,13 +378,13 @@ class TypesenseEcommerceSearchService
                     'in_stock' => $document['in_stock'] ?? false,
                     'stock_quantity' => $document['stock_quantity'] ?? 0,
                     'highlights' => $highlights,
-                    'text_match_info' => $hit['text_match_info'] ?? []
+                    'text_match_info' => $hit['text_match_info'] ?? [],
                 ];
             }
         }
 
         // Extract facets
-        if (!empty($searchResults['facet_counts'])) {
+        if (! empty($searchResults['facet_counts'])) {
             foreach ($searchResults['facet_counts'] as $facet) {
                 $facetName = $facet['field_name'];
                 $facetCounts = [];
@@ -214,7 +393,7 @@ class TypesenseEcommerceSearchService
                     $facetCounts[] = [
                         'value' => $count['value'],
                         'count' => $count['count'],
-                        'highlighted' => $count['highlighted'] ?? $count['value']
+                        'highlighted' => $count['highlighted'] ?? $count['value'],
                     ];
                 }
 
@@ -229,19 +408,19 @@ class TypesenseEcommerceSearchService
                 'current_page' => $params['page'] ?? 1,
                 'per_page' => $params['per_page'] ?? 24,
                 'total' => $searchResults['found'] ?? 0,
-                'total_pages' => ceil(($searchResults['found'] ?? 0) / ($params['per_page'] ?? 24))
+                'total_pages' => ceil(($searchResults['found'] ?? 0) / ($params['per_page'] ?? 24)),
             ],
             'meta' => [
                 'search_time_ms' => $searchResults['search_time_ms'] ?? 0,
                 'search_cutoff' => $searchResults['search_cutoff'] ?? false,
-                'total_found' => $searchResults['found'] ?? 0
-            ]
+                'total_found' => $searchResults['found'] ?? 0,
+            ],
         ];
     }
 
     public function getFacetsOnly(array $params): array
     {
-        $cacheKey = 'typesense_ecommerce_facets_' . md5(serialize($params));
+        $cacheKey = 'typesense_ecommerce_facets_'.md5(serialize($params));
 
         return Cache::remember($cacheKey, self::FACET_CACHE_TTL, function () use ($params) {
             try {
@@ -251,7 +430,7 @@ class TypesenseEcommerceSearchService
                 $searchResults = $this->typesenseClient->collections[$collectionName]->documents->search($searchParams);
 
                 $facets = [];
-                if (!empty($searchResults['facet_counts'])) {
+                if (! empty($searchResults['facet_counts'])) {
                     foreach ($searchResults['facet_counts'] as $facet) {
                         $facetName = $facet['field_name'];
                         $facetCounts = [];
@@ -260,7 +439,7 @@ class TypesenseEcommerceSearchService
                             $facetCounts[] = [
                                 'value' => $count['value'],
                                 'count' => $count['count'],
-                                'highlighted' => $count['highlighted'] ?? $count['value']
+                                'highlighted' => $count['highlighted'] ?? $count['value'],
                             ];
                         }
 
@@ -272,6 +451,7 @@ class TypesenseEcommerceSearchService
 
             } catch (\Exception $e) {
                 Log::error('Typesense facets error', ['error' => $e->getMessage()]);
+
                 return [];
             }
         });
@@ -287,14 +467,14 @@ class TypesenseEcommerceSearchService
                 'prefix' => 'true',
                 'per_page' => $limit,
                 'facet_by' => 'category_name,brand_name',
-                'max_facet_values' => 5
+                'max_facet_values' => 5,
             ];
 
             $collectionName = $this->getCollectionName();
             $searchResults = $this->typesenseClient->collections[$collectionName]->documents->search($searchParams);
 
             $suggestions = [];
-            if (!empty($searchResults['hits'])) {
+            if (! empty($searchResults['hits'])) {
                 foreach ($searchResults['hits'] as $hit) {
                     $document = $hit['document'];
                     $suggestions[] = [
@@ -302,7 +482,7 @@ class TypesenseEcommerceSearchService
                         'text' => $document['name'],
                         'category' => $document['category_name'] ?? '',
                         'brand' => $document['brand_name'] ?? '',
-                        'image' => $document['image_url'] ?? '/images/place_holder.svg'
+                        'image' => $document['image_url'] ?? '/images/place_holder.svg',
                     ];
                 }
             }
@@ -311,6 +491,7 @@ class TypesenseEcommerceSearchService
 
         } catch (\Exception $e) {
             Log::error('Typesense autocomplete error', ['error' => $e->getMessage()]);
+
             return [];
         }
     }
@@ -332,13 +513,13 @@ class TypesenseEcommerceSearchService
                 'current_page' => 1,
                 'per_page' => 24,
                 'total' => 0,
-                'total_pages' => 0
+                'total_pages' => 0,
             ],
             'meta' => [
                 'search_time_ms' => 0,
                 'search_cutoff' => false,
-                'total_found' => 0
-            ]
+                'total_found' => 0,
+            ],
         ];
     }
 
@@ -381,7 +562,7 @@ class TypesenseEcommerceSearchService
         } catch (\Exception $e) {
             Log::error('Failed to update product with price range', [
                 'product_id' => $product->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
