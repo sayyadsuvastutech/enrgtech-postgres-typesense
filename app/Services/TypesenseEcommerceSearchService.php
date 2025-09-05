@@ -33,27 +33,80 @@ class TypesenseEcommerceSearchService
 
     public function search(array $params): array
     {
+        $startTime = microtime(true);
+        $searchId = uniqid('search_');
+
+        Log::info('Typesense Search Started', [
+            'search_id' => $searchId,
+            'params' => $params,
+            'ai_search_enabled' => $params['ai_search'] ?? false,
+            'query' => $params['q'] ?? '',
+            'timestamp' => now()->toISOString()
+        ]);
+
         try {
             // Check if AI search is enabled
             $isAiSearch = $params['ai_search'] ?? false;
 
             if ($isAiSearch && ! empty($params['q']) && $params['q'] !== '*') {
-                return $this->hybridSearch($params);
+                Log::info('Performing AI (Hybrid) Search', [
+                    'search_id' => $searchId,
+                    'query' => $params['q']
+                ]);
+                $result = $this->hybridSearch($params);
+
+                Log::info('AI Search Completed', [
+                    'search_id' => $searchId,
+                    'results_count' => count($result['products'] ?? []),
+                    'total_found' => $result['pagination']['total'] ?? 0,
+                    'search_time_ms' => round((microtime(true) - $startTime) * 1000, 2),
+                    'facets_available' => array_keys($result['facets'] ?? [])
+                ]);
+
+                return $result;
             }
 
-            dd($isAiSearch);
+            Log::info('Performing Simple (Keyword) Search', [
+                'search_id' => $searchId,
+                'query' => $params['q'] ?? ''
+            ]);
 
             $searchParams = $this->buildEcommerceSearchParams($params);
+
+            Log::debug('Simple Search Parameters', [
+                'search_id' => $searchId,
+                'typesense_params' => $searchParams
+            ]);
 
             $collectionName = $this->getCollectionName();
             $searchResults = $this->typesenseClient->collections[$collectionName]->documents->search($searchParams);
 
-            return $this->formatEcommerceResults($searchResults, $params);
+            Log::debug('Raw Typesense Response', [
+                'search_id' => $searchId,
+                'found' => $searchResults['found'] ?? 0,
+                'search_time_ms' => $searchResults['search_time_ms'] ?? 0,
+                'hits_count' => count($searchResults['hits'] ?? [])
+            ]);
+
+            $formattedResults = $this->formatEcommerceResults($searchResults, $params);
+
+            Log::info('Simple Search Completed', [
+                'search_id' => $searchId,
+                'results_count' => count($formattedResults['products'] ?? []),
+                'total_found' => $formattedResults['pagination']['total'] ?? 0,
+                'search_time_ms' => round((microtime(true) - $startTime) * 1000, 2),
+                'facets_available' => array_keys($formattedResults['facets'] ?? [])
+            ]);
+
+            return $formattedResults;
 
         } catch (\Exception $e) {
-            Log::error('Typesense ecommerce search error', [
+            Log::error('Typesense Search Error', [
+                'search_id' => $searchId,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'params' => $params,
+                'search_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
             ]);
 
             return $this->getEmptyResults();
@@ -65,44 +118,176 @@ class TypesenseEcommerceSearchService
      */
     public function hybridSearch(array $params): array
     {
+        $hybridStartTime = microtime(true);
+        $hybridSearchId = uniqid('hybrid_');
+
+        Log::info('Hybrid Search Process Started', [
+            'hybrid_search_id' => $hybridSearchId,
+            'query' => $params['q'] ?? ''
+        ]);
+
         try {
             $query = $params['q'] ?? '';
             if (empty($query) || $query === '*') {
+                Log::info('Empty query in hybrid search, falling back to regular search', [
+                    'hybrid_search_id' => $hybridSearchId
+                ]);
                 return $this->search($params); // Fall back to regular search
             }
 
             // Get embedding for the search query
+            $embeddingStartTime = microtime(true);
             $queryEmbedding = $this->getQueryEmbedding($query);
 
+            $embeddingTime = round((microtime(true) - $embeddingStartTime) * 1000, 2);
+
             if (! $queryEmbedding) {
-                Log::warning('Failed to get embedding for query, falling back to regular search', ['query' => $query]);
+                Log::warning('Failed to get embedding for query, falling back to regular search', [
+                    'hybrid_search_id' => $hybridSearchId,
+                    'query' => $query,
+                    'embedding_time_ms' => $embeddingTime
+                ]);
 
                 return $this->search(array_merge($params, ['ai_search' => false]));
             }
+
+            Log::info('Query embedding obtained successfully', [
+                'hybrid_search_id' => $hybridSearchId,
+                'embedding_time_ms' => $embeddingTime,
+                'embedding_dimensions' => count($queryEmbedding)
+            ]);
 
             // Perform vector search with Typesense
             $vectorSearchParams = $this->buildVectorSearchParams($params, $queryEmbedding);
             $keywordSearchParams = $this->buildEcommerceSearchParams($params);
 
+            Log::debug('Hybrid Search Parameters', [
+                'hybrid_search_id' => $hybridSearchId,
+                'vector_params' => $vectorSearchParams,
+                'keyword_params' => $keywordSearchParams
+            ]);
+
             $collectionName = $this->getCollectionName();
 
-            // Execute both searches
-            $vectorResults = $this->typesenseClient->collections[$collectionName]->documents->search($vectorSearchParams);
+            // Execute both searches - use multi_search for vector search to handle large payloads
+            $vectorSearchStart = microtime(true);
+            $vectorResults = $this->executeVectorSearch($vectorSearchParams, $collectionName);
+            $vectorSearchTime = round((microtime(true) - $vectorSearchStart) * 1000, 2);
+
+            $keywordSearchStart = microtime(true);
             $keywordResults = $this->typesenseClient->collections[$collectionName]->documents->search($keywordSearchParams);
+            $keywordSearchTime = round((microtime(true) - $keywordSearchStart) * 1000, 2);
+
+            dd($vectorResults);
+
+            Log::info('Individual Search Results Obtained', [
+                'hybrid_search_id' => $hybridSearchId,
+                'vector_results' => [
+                    'found' => $vectorResults['found'] ?? 0,
+                    'hits' => count($vectorResults['hits'] ?? []),
+                    'search_time_ms' => $vectorSearchTime
+                ],
+                'keyword_results' => [
+                    'found' => $keywordResults['found'] ?? 0,
+                    'hits' => count($keywordResults['hits'] ?? []),
+                    'search_time_ms' => $keywordSearchTime
+                ]
+            ]);
 
             // Combine and rank results
+            $combineStartTime = microtime(true);
             $combinedResults = $this->combineSearchResults($vectorResults, $keywordResults, $params);
+            $combineTime = round((microtime(true) - $combineStartTime) * 1000, 2);
 
-            return $this->formatEcommerceResults($combinedResults, $params);
+            Log::info('Search Results Combined', [
+                'hybrid_search_id' => $hybridSearchId,
+                'combined_hits' => count($combinedResults['hits'] ?? []),
+                'combine_time_ms' => $combineTime
+            ]);
+
+            $finalResults = $this->formatEcommerceResults($combinedResults, $params);
+
+            Log::info('Hybrid Search Process Completed', [
+                'hybrid_search_id' => $hybridSearchId,
+                'total_time_ms' => round((microtime(true) - $hybridStartTime) * 1000, 2),
+                'final_results_count' => count($finalResults['products'] ?? []),
+                'total_found' => $finalResults['pagination']['total'] ?? 0
+            ]);
+
+            return $finalResults;
 
         } catch (\Exception $e) {
-            Log::error('Hybrid search error, falling back to regular search', [
+            Log::error('Hybrid Search Error, falling back to regular search', [
+                'hybrid_search_id' => $hybridSearchId,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'params' => $params,
+                'total_time_ms' => round((microtime(true) - $hybridStartTime) * 1000, 2)
             ]);
 
             // Fall back to regular search on error
             return $this->search(array_merge($params, ['ai_search' => false]));
+        }
+    }
+
+    /**
+     * Execute vector search using multi_search endpoint to handle large payloads
+     */
+    private function executeVectorSearch(array $searchParams, string $collectionName): array
+    {
+        try {
+            // Use multi_search endpoint for large vector queries
+            $multiSearchQuery = [
+                'searches' => [
+                    [
+                        'collection' => $collectionName,
+                        'q' => $searchParams['q'],
+                        'vector_query' => $searchParams['vector_query'],
+                        'facet_by' => $searchParams['facet_by'] ?? '',
+                        'max_facet_values' => $searchParams['max_facet_values'] ?? 100,
+                        'per_page' => $searchParams['per_page'] ?? 24,
+                        'page' => $searchParams['page'] ?? 1,
+                        'filter_by' => $searchParams['filter_by'] ?? '',
+                    ]
+                ]
+            ];
+
+            Log::debug('Executing vector search via multi_search endpoint', [
+                'collection' => $collectionName,
+                'vector_query_length' => strlen($searchParams['vector_query'] ?? ''),
+                'search_params_keys' => array_keys($searchParams)
+            ]);
+
+            // Execute multi_search
+            $multiSearchResults = $this->typesenseClient->multiSearch->perform($multiSearchQuery, []);
+
+            // Extract the first (and only) search result
+            if (!empty($multiSearchResults['results']) && !empty($multiSearchResults['results'][0])) {
+                $vectorResults = $multiSearchResults['results'][0];
+
+                Log::debug('Vector search via multi_search completed successfully', [
+                    'found' => $vectorResults['found'] ?? 0,
+                    'hits_count' => count($vectorResults['hits'] ?? []),
+                    'search_time_ms' => $vectorResults['search_time_ms'] ?? 0
+                ]);
+
+                return $vectorResults;
+            } else {
+                Log::warning('Multi_search returned empty results', [
+                    'multi_search_response' => $multiSearchResults
+                ]);
+                return ['hits' => [], 'found' => 0, 'facet_counts' => []];
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Vector search via multi_search failed', [
+                'error' => $e->getMessage(),
+                'collection' => $collectionName,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            // Return empty results on failure
+            return ['hits' => [], 'found' => 0, 'facet_counts' => []];
         }
     }
 
@@ -112,7 +297,7 @@ class TypesenseEcommerceSearchService
     private function getQueryEmbedding(string $query): ?array
     {
         try {
-            $response = Http::timeout(10)->post('http://10.10.10.24:8000/embed', [
+            $response = Http::timeout(30)->post('http://10.10.10.24:8000/embed', [
                 'text' => $query,
             ]);
 
@@ -170,7 +355,18 @@ class TypesenseEcommerceSearchService
         $vectorHits = $vectorResults['hits'] ?? [];
         $keywordHits = $keywordResults['hits'] ?? [];
 
-        dd($vectorHits, $keywordHits);
+        Log::debug('Combining Search Results', [
+            'vector_hits_count' => count($vectorHits),
+            'keyword_hits_count' => count($keywordHits),
+            'vector_sample' => array_slice(array_map(fn($hit) => [
+                'id' => $hit['document']['id'] ?? 'unknown',
+                'name' => $hit['document']['name'] ?? 'unknown'
+            ], $vectorHits), 0, 5),
+            'keyword_sample' => array_slice(array_map(fn($hit) => [
+                'id' => $hit['document']['id'] ?? 'unknown',
+                'name' => $hit['document']['name'] ?? 'unknown'
+            ], $keywordHits), 0, 5)
+        ]);
 
         // Create a map of document IDs to their scores and data
         $combinedHits = [];
@@ -227,6 +423,23 @@ class TypesenseEcommerceSearchService
         $combinedResults = $keywordResults; // Use keyword results as base for facets and pagination
         $combinedResults['hits'] = array_values($combinedHits);
         $combinedResults['found'] = count($combinedHits);
+
+        Log::debug('Final Combined Results', [
+            'total_combined_hits' => count($combinedHits),
+            'unique_documents' => count(array_unique($seenIds)),
+            'score_distribution' => [
+                'vector_only' => count(array_filter($combinedHits, fn($hit) => $hit['vector_score'] > 0 && $hit['keyword_score'] == 0)),
+                'keyword_only' => count(array_filter($combinedHits, fn($hit) => $hit['keyword_score'] > 0 && $hit['vector_score'] == 0)),
+                'both_searches' => count(array_filter($combinedHits, fn($hit) => $hit['vector_score'] > 0 && $hit['keyword_score'] > 0))
+            ],
+            'top_5_results' => array_slice(array_map(fn($hit) => [
+                'id' => $hit['document']['id'] ?? 'unknown',
+                'name' => $hit['document']['name'] ?? 'unknown',
+                'vector_score' => $hit['vector_score'],
+                'keyword_score' => $hit['keyword_score'],
+                'combined_score' => $hit['combined_score']
+            ], array_values($combinedHits)), 0, 5)
+        ]);
 
         return $combinedResults;
     }

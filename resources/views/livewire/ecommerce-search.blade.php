@@ -104,7 +104,7 @@ class extends Component {
         $this->isLoading = false;
     }
     
-    public function updatedQuery(): void
+    public function performSearch(): void
     {
         $this->currentPage = 1;
         $this->search();
@@ -207,20 +207,38 @@ class extends Component {
             <!-- Search Bar -->
             <div class="max-w-3xl mx-auto">
                 <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <!-- AI Toggle Button (Left Side) -->
+                    <button wire:click="$toggle('aiSearchEnabled')"
+                            class="absolute inset-y-0 left-0 pl-3 pr-2 flex items-center z-10 {{ $aiSearchEnabled ? 'text-purple-600' : 'text-gray-400' }} hover:{{ $aiSearchEnabled ? 'text-purple-700' : 'text-gray-600' }} transition-colors">
+                        @if($aiSearchEnabled)
+                            <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
+                            </svg>
+                        @else
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                            </svg>
+                        @endif
+                    </button>
+
+                    <input type="text"
+                           wire:model="query"
+                           wire:keydown.enter="performSearch"
+                           placeholder="{{ $aiSearchEnabled ? 'Ask AI anything about products...' : 'Search products, SKUs, brands, categories...' }}"
+                           class="block w-full pl-12 pr-16 py-3 border {{ $aiSearchEnabled ? 'border-purple-300 bg-gradient-to-r from-purple-50 to-blue-50 focus:ring-purple-500 focus:border-purple-500' : 'border-gray-300 bg-white focus:ring-blue-500 focus:border-transparent' }} rounded-lg text-lg text-gray-900 {{ $aiSearchEnabled ? 'placeholder-purple-400' : 'placeholder-gray-500' }} focus:outline-none focus:ring-2 transition-all duration-200"
+                           value="{{ $query }}">
+                    
+                    <!-- Search Button -->
+                    <button wire:click="performSearch"
+                            class="absolute inset-y-0 right-0 pr-3 flex items-center {{ $aiSearchEnabled ? 'text-purple-600 hover:text-purple-700' : 'text-gray-500 hover:text-blue-600' }} transition-colors">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                         </svg>
-                    </div>
-                    <input type="text"
-                           wire:model.live.debounce.300ms="query"
-                           placeholder="Search products, SKUs, brands, categories..."
-                           class="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg text-lg text-gray-900 placeholder-gray-500 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                           value="{{ $query }}">
+                    </button>
                     
                     @if($query)
                         <button wire:click="$set('query', '')" 
-                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                                class="absolute inset-y-0 right-8 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
                             </svg>
@@ -228,35 +246,17 @@ class extends Component {
                     @endif
                 </div>
                 
-                <!-- AI Search Toggle -->
-                <div class="mt-4 flex justify-center">
-                    <div class="bg-gray-50 rounded-lg p-3">
-                        <label class="flex items-center cursor-pointer">
-                            <div class="relative">
-                                <input type="checkbox" 
-                                       wire:model.live="aiSearchEnabled" 
-                                       class="sr-only">
-                                <div class="block {{ $aiSearchEnabled ? 'bg-gradient-to-r from-purple-600 to-blue-600' : 'bg-gray-300' }} w-14 h-8 rounded-full transition-colors duration-200 ease-in-out"></div>
-                                <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform duration-200 ease-in-out {{ $aiSearchEnabled ? 'transform translate-x-6' : '' }}"></div>
-                            </div>
-                            <div class="ml-3">
-                                <span class="text-sm font-medium {{ $aiSearchEnabled ? 'text-purple-700' : 'text-gray-700' }}">
-                                    {{ $aiSearchEnabled ? 'AI Search' : 'Simple Search' }}
-                                </span>
-                                <div class="text-xs {{ $aiSearchEnabled ? 'text-purple-600' : 'text-gray-500' }}">
-                                    {{ $aiSearchEnabled ? 'Semantic search with nomic-ai' : 'Traditional keyword search' }}
-                                </div>
-                            </div>
-                            @if($aiSearchEnabled)
-                                <div class="ml-2">
-                                    <svg class="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
-                                    </svg>
-                                </div>
-                            @endif
-                        </label>
+                <!-- Search Mode Indicator -->
+                @if($aiSearchEnabled)
+                    <div class="mt-2 flex justify-center">
+                        <div class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
+                            </svg>
+                            AI Semantic Search • Powered by nomic-ai
+                        </div>
                     </div>
-                </div>
+                @endif
             </div>
         </div>
 
