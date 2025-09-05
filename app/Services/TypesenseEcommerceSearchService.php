@@ -178,7 +178,7 @@ class TypesenseEcommerceSearchService
             $keywordResults = $this->typesenseClient->collections[$collectionName]->documents->search($keywordSearchParams);
             $keywordSearchTime = round((microtime(true) - $keywordSearchStart) * 1000, 2);
 
-            dd($vectorResults);
+//            dd($vectorResults);
 
             Log::info('Individual Search Results Obtained', [
                 'hybrid_search_id' => $hybridSearchId,

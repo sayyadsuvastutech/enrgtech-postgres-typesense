@@ -141,10 +141,10 @@ class Product extends Model
 
         // Get embedding vector if available
         $embeddingVector = null;
-        if ($this->embedding && ! empty($this->embedding->vector)) {
-            $embeddingVector = is_string($this->embedding->vector)
-                ? json_decode($this->embedding->vector, true)
-                : $this->embedding->vector;
+        if ($this->embedding && ! empty($this->embedding->embedding)) {
+            $embeddingVector = is_string($this->embedding->embedding)
+                ? json_decode($this->embedding->embedding, true)
+                : $this->embedding->embedding;
         }
 
         return [

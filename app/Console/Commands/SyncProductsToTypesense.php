@@ -13,8 +13,9 @@ class SyncProductsToTypesense extends Command
      *
      * @var string
      */
-    protected $signature = 'typesense:sync-products 
+    protected $signature = 'typesense:sync-products
                             {--batch=500 : Number of products to process in each batch}
+                            {--limit= : Limit number of products to sync}
                             {--update-existing : Update existing products in index}
                             {--recreate-index : Drop and recreate the index}';
 
@@ -33,17 +34,29 @@ class SyncProductsToTypesense extends Command
         $this->info('Starting Typesense product sync...');
 
         $batchSize = (int) $this->option('batch');
+        $limit = $this->option('limit') ? (int) $this->option('limit') : null;
         $updateExisting = $this->option('update-existing');
         $recreateIndex = $this->option('recreate-index');
 
         try {
             // Get active products with relationships
-            $query = Product::with([
+            $baseQuery = Product::with([
                 'category', 'manufacturer', 'brand', 'attributes',
                 'prices', 'quantities', 'images', 'embedding',
-            ])->where('status_id', 2); // Only active products
-
-            $totalProducts = $query->count();
+            ])->where('status_id', 2)
+            ->whereHas('embedding',function ($query)  {
+                return $query->whereNotNull('embedding');
+            });
+            
+            // Apply limit if specified
+            if ($limit) {
+                $query = $baseQuery->take($limit);
+                $totalProducts = min($limit, $baseQuery->count());
+                $this->info("Limiting sync to {$limit} products");
+            } else {
+                $query = $baseQuery->take(10000);
+                $totalProducts = min(10000, $baseQuery->count());
+            }
             $this->info("Found {$totalProducts} active products to sync");
 
             if ($totalProducts === 0) {
